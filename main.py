@@ -1,59 +1,38 @@
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
 
+model = AutoModelForCausalLM.from_pretrained("microsoft/DialoGPT-medium")
+tokenizer = AutoTokenizer.from_pretrained("microsoft/DialoGPT-medium")
 
-class QwenChatbot:
-    def __init__(self, model_name="Qwen/Qwen3-0.6B"):
-        # Добавьте параметры для безопасной загрузки
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            model_name,
-            trust_remote_code=True,
-            local_files_only=False,  # Принудительно скачать заново
-        )
-        self.model = AutoModelForCausalLM.from_pretrained(
-            model_name,
-            trust_remote_code=True,
-            torch_dtype=torch.float32,  # Для CPU используйте float32
-            device_map="auto",  # Автоматическое распределение
-        )
-        self.history = []
+# Для диалога:
+chat_history_ids = None
+if True:
+    user_input = "Hi. Who is Pifaghor?"
+    # user_input = input(">> User:")
+    # if user_input.lower() == 'quit':
+    #     break
 
-    def generate_response(self, user_input):
-        messages = self.history + [{"role": "user", "content": user_input}]
+    # Кодируем вход + историю
+    inputs = tokenizer.encode(user_input + tokenizer.eos_token, return_tensors="pt")
 
-        text = self.tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True
-        )
+    # Генерируем ответ
+    outputs = model.generate(
+        (
+            inputs
+            if chat_history_ids is None
+            else torch.cat([chat_history_ids, inputs], dim=-1)
+        ),
+        max_length=1000,
+        pad_token_id=tokenizer.eos_token_id,
+        do_sample=True,
+        temperature=0.7,
+    )
 
-        inputs = self.tokenizer(text, return_tensors="pt")
+    # Декодируем ответ
+    response = tokenizer.decode(
+        outputs[:, inputs.shape[-1] :][0], skip_special_tokens=True
+    )
+    print(f"Bot: {response}")
 
-        # Для CPU лучше использовать меньший max_new_tokens
-        response_ids = self.model.generate(
-            **inputs,
-            max_new_tokens=512,  # Уменьшите для CPU
-            do_sample=True,
-            temperature=0.7,
-        )
-
-        response = self.tokenizer.decode(
-            response_ids[0][len(inputs.input_ids[0]) :], skip_special_tokens=True
-        )
-
-        # Update history
-        self.history.append({"role": "user", "content": user_input})
-        self.history.append({"role": "assistant", "content": response})
-
-        return response
-
-
-# Example Usage
-print("before test")
-if __name__ == "__main__":
-    print("start")
-    chatbot = QwenChatbot()
-
-    user_input_1 = "Привет. Расскажи мне про теорему Пифагора"
-    print(f"User: {user_input_1}")
-    response_1 = chatbot.generate_response(user_input_1)
-    print(f"Bot: {response_1}")
-    print("----------------------")
+    # Обновляем историю
+    chat_history_ids = outputs
