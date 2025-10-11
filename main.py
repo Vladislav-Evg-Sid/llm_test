@@ -58,6 +58,9 @@ class LlamaChatbot:
 # Example Usage
 print("before test")
 if __name__ == "__main__":
+    test = input(">>>")
+    if test == "n":
+        exit(0)
     print("start")
     chatbot = LlamaChatbot()
 
