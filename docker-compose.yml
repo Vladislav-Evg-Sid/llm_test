@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  llm_qwen:
+    container_name: llm-dialog
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8000"
+    environment:
+      - PYTHONPATH=/app
