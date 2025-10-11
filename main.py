@@ -6,23 +6,6 @@ class QwenChatbot:
     def __init__(self, model_name="Qwen/Qwen2.5-0.5B"):
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.model = AutoModelForCausalLM.from_pretrained(model_name)
-        # остальной код...
-
-
-class QwenChatbot:
-    def __init__(self, model_name="Qwen/Qwen3-0.6B"):
-        # Добавьте параметры для безопасной загрузки
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            model_name,
-            trust_remote_code=True,
-            local_files_only=False,  # Принудительно скачать заново
-        )
-        self.model = AutoModelForCausalLM.from_pretrained(
-            model_name,
-            trust_remote_code=True,
-            torch_dtype=torch.float32,  # Для CPU используйте float32
-            device_map="auto",  # Автоматическое распределение
-        )
         self.history = []
 
     def generate_response(self, user_input):
