@@ -1,5 +1,12 @@
+# ОТКЛЮЧАЕМ ПРОГРЕСС-БАРЫ И ПРЕДУПРЕЖДЕНИЯ HUGGINGFACE
+import os
+os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
+os.environ["TRANSFORMERS_VERBOSITY"] = "error"
+
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
 import torch
+import warnings
+warnings.filterwarnings("ignore")
 
 
 class LlamaChatbot:
