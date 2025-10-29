@@ -9,18 +9,20 @@ class LlamaChatbot:
     def __init__(self, name="sberbank-ai/rugpt3small_based_on_gpt2"):
         if LlamaChatbot._initialized:
             return
+            
         print("⚡ Загрузка ультра-лёгкой модели...")
         
         self.tokenizer = GPT2Tokenizer.from_pretrained(name)
         self.tokenizer.pad_token = self.tokenizer.eos_token
         
         self.model = GPT2LMHeadModel.from_pretrained(
-            "sberbank-ai/rugpt3small_based_on_gpt2",
+            name,
             torch_dtype=torch.float32
         )
         self.model.eval()
-        print("✅ Ультра-лёгкая модель загружена!")
+        
         LlamaChatbot._initialized = True
+        print("✅ Ультра-лёгкая модель загружена!")
 
     @classmethod
     def get_instance(cls):
@@ -42,22 +44,3 @@ class LlamaChatbot:
         
         response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
         return response.replace(user_input, "").strip()
-
-# # Example Usage
-# if __name__ == "__main__":
-#     test = input()
-#     if test == "n":
-#         exit(0)
-#     print("start")
-#     chatbot = LlamaChatbot()
-
-#     user_input = "Привет. Расскажи мне про теорему Пифагора"
-#     print(f"User: {user_input}")
-#     response = chatbot.generate_response(user_input)
-#     print(f"Bot: {response}")
-#     print("----------------------")
-#     print("Введи следующее сообщение:")
-#     user_input = input()
-#     response = chatbot.generate_response(user_input)
-#     print(f"Bot: {response}")
-#     print("----------------------")
