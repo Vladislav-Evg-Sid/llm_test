@@ -5,66 +5,70 @@ import torch
 class LlamaChatbot:
     _instance = None
     _initialized = False
-    
-    def __init__(self, model_name="meta-llama/Llama-3.2-3B"):
-        # Для Llama моделей обычно нужен trust_remote_code
-        if LlamaChatbot._initialized: return
+
+    def __init__(self, model_name="openlm-research/open_llama_3b_v2"):
+        if LlamaChatbot._initialized:
+            return
+
+        # Для OpenLLaMA рекомендуется отключить fast tokenizer (use_fast=False)
         self.tokenizer = AutoTokenizer.from_pretrained(
-            model_name, trust_remote_code=True
+            model_name,
+            trust_remote_code=True,
+            use_fast=False  # Важно для корректной токенизации в OpenLLaMA[citation:8]
         )
         self.model = AutoModelForCausalLM.from_pretrained(
             model_name,
             trust_remote_code=True,
-            torch_dtype=torch.float32,  # Явно указываем float32 для CPU
-            device_map="auto",  # Автоматическое распределение (важно для CPU)
+            torch_dtype=torch.float32,
+            device_map="auto",
         )
         self.history = []
-    
+        LlamaChatbot._initialized = True
+
     @classmethod
     def get_instance(cls):
-        """Статический метод для получения единственного экземпляра"""
         if cls._instance is None:
             cls._instance = LlamaChatbot()
         return cls._instance
 
     def generate_response(self, user_input):
+        # Форматируем историю диалога и новый запрос
         messages = self.history + [{"role": "user", "content": user_input}]
+        
+        # Создаем промт в формате, который понимает модель
+        # Для OpenLLaMA можно использовать простой формат, например:
+        # <s> Предыдущий вопрос </s> </s> Предыдущий ответ </s> </s> Новый вопрос </s> </s>
+        formatted_prompt = ""
+        for msg in messages:
+            if msg["role"] == "user":
+                formatted_prompt += f"<s> {msg['content']} </s>"
+            else:
+                formatted_prompt += f" </s> {msg['content']} </s>"
+        
+        # Добавляем тег для начала ответа модели
+        formatted_prompt += " </s>"
 
-        # Llama использует другой формат чата, поэтому лучше явно форматировать
-        formatted_messages = [
-            {"role": "user" if i % 2 == 0 else "assistant", "content": msg["content"]}
-            for i, msg in enumerate(
-                self.history + [{"role": "user", "content": user_input}]
+        inputs = self.tokenizer(formatted_prompt, return_tensors="pt")
+
+        # Генерация ответа
+        with torch.no_grad():
+            response_ids = self.model.generate(
+                **inputs,
+                max_new_tokens=256,
+                do_sample=True,
+                temperature=0.7,
+                pad_token_id=self.tokenizer.eos_token_id,
+                repetition_penalty=1.1,
             )
-        ]
 
-        # Альтернативный способ форматирования для Llama
-        text = self.tokenizer.apply_chat_template(
-            formatted_messages, tokenize=False, add_generation_prompt=True
-        )
-
-        inputs = self.tokenizer(text, return_tensors="pt")
-
-        # Настройки генерации для CPU
-        response_ids = self.model.generate(
-            **inputs,
-            max_new_tokens=256,  # Еще меньше для 3B модели на CPU
-            do_sample=True,
-            temperature=0.7,
-            pad_token_id=self.tokenizer.eos_token_id,  # Важно для Llama
-            repetition_penalty=1.1,  # Помогает избежать повторений
-        )
-
-        response = self.tokenizer.decode(
-            response_ids[0][len(inputs.input_ids[0]) :], skip_special_tokens=True
-        )
+        # Декодируем только сгенерированную часть
+        response = self.tokenizer.decode(response_ids[0][inputs.input_ids.shape[1]:], skip_special_tokens=True)
 
         # Обновляем историю
         self.history.append({"role": "user", "content": user_input})
         self.history.append({"role": "assistant", "content": response})
 
         return response
-
 
 # # Example Usage
 # if __name__ == "__main__":
