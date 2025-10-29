@@ -63,8 +63,13 @@ if __name__ == "__main__":
     print("start")
     chatbot = LlamaChatbot()
 
-    user_input_1 = "Привет. Расскажи мне про теорему Пифагора"
-    print(f"User: {user_input_1}")
-    response_1 = chatbot.generate_response(user_input_1)
-    print(f"Bot: {response_1}")
+    user_input = "Привет. Расскажи мне про теорему Пифагора"
+    print(f"User: {user_input}")
+    response = chatbot.generate_response(user_input)
+    print(f"Bot: {response}")
+    print("----------------------")
+    print("Введи следующее сообщение:")
+    user_input = input()
+    response = chatbot.generate_response(user_input)
+    print(f"Bot: {response}")
     print("----------------------")
