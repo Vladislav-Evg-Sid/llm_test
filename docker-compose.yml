@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  llm_qwen:
+  llm:
     container_name: llm-dialog
     build:
       context: .
@@ -10,5 +10,8 @@ services:
     tty: true
     ports:
       - "8080:8000"
+    volumes:
+      - .:/app
+      - ./logs:/app/logs
     environment:
       - PYTHONPATH=/app
