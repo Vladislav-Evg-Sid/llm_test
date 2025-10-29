@@ -3,6 +3,9 @@ import torch
 
 
 class LlamaChatbot:
+    _instance = None
+    _initialized = False
+    
     def __init__(self, model_name="meta-llama/Llama-3.2-3B"):
         # Для Llama моделей обычно нужен trust_remote_code
         if LlamaChatbot._initialized: return
