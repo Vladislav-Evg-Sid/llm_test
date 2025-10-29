@@ -1,28 +1,50 @@
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 import torch
+import warnings
 
 
 class LlamaChatbot:
     _instance = None
     _initialized = False
 
-    def __init__(self, model_name="openlm-research/open_llama_3b_v2"):
+    def __init__(self, model_name="TinyLlama/TinyLlama-1.1B-Chat-v1.0"):
         if LlamaChatbot._initialized:
             return
-
-        # Для OpenLLaMA рекомендуется отключить fast tokenizer (use_fast=False)
+        print("🚀 Загрузка лёгкой модели...")
+        
+        # Загружаем токенизатор
         self.tokenizer = AutoTokenizer.from_pretrained(
             model_name,
-            trust_remote_code=True,
-            use_fast=False  # Важно для корректной токенизации в OpenLLaMA[citation:8]
+            trust_remote_code=True
         )
+        
+        # Устанавливаем pad_token если его нет
+        if self.tokenizer.pad_token is None:
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+        
+        # Загружаем модель с оптимизациями для CPU
         self.model = AutoModelForCausalLM.from_pretrained(
             model_name,
-            trust_remote_code=True,
             torch_dtype=torch.float32,
-            device_map="auto",
+            device_map="cpu",
+            low_cpu_mem_usage=True,
+            trust_remote_code=True
         )
+        
+        # Переводим в режим инференса
+        self.model.eval()
+        
+        # Создаём пайплайн для упрощённой работы
+        self.pipe = pipeline(
+            "text-generation",
+            model=self.model,
+            tokenizer=self.tokenizer,
+            torch_dtype=torch.float32,
+            device="cpu"
+        )
+        
         self.history = []
+        print("✅ Модель успешно загружена и готова к работе!")
         LlamaChatbot._initialized = True
 
     @classmethod
@@ -32,43 +54,47 @@ class LlamaChatbot:
         return cls._instance
 
     def generate_response(self, user_input):
-        # Форматируем историю диалога и новый запрос
-        messages = self.history + [{"role": "user", "content": user_input}]
-        
-        # Создаем промт в формате, который понимает модель
-        # Для OpenLLaMA можно использовать простой формат, например:
-        # <s> Предыдущий вопрос </s> </s> Предыдущий ответ </s> </s> Новый вопрос </s> </s>
-        formatted_prompt = ""
-        for msg in messages:
-            if msg["role"] == "user":
-                formatted_prompt += f"<s> {msg['content']} </s>"
+        try:
+            # Формируем промт для чата
+            if self.history:
+                conversation = "\n".join([f"{'User' if i % 2 == 0 else 'Assistant'}: {msg['content']}" 
+                                        for i, msg in enumerate(self.history[-4:])])  # Берём последние 4 сообщения
+                prompt = f"{conversation}\nUser: {user_input}\nAssistant:"
             else:
-                formatted_prompt += f" </s> {msg['content']} </s>"
-        
-        # Добавляем тег для начала ответа модели
-        formatted_prompt += " </s>"
-
-        inputs = self.tokenizer(formatted_prompt, return_tensors="pt")
-
-        # Генерация ответа
-        with torch.no_grad():
-            response_ids = self.model.generate(
-                **inputs,
-                max_new_tokens=256,
+                prompt = f"User: {user_input}\nAssistant:"
+            
+            # Генерируем ответ
+            outputs = self.pipe(
+                prompt,
+                max_new_tokens=150,
                 do_sample=True,
                 temperature=0.7,
-                pad_token_id=self.tokenizer.eos_token_id,
+                top_p=0.9,
                 repetition_penalty=1.1,
+                pad_token_id=self.tokenizer.eos_token_id,
+                num_return_sequences=1
             )
-
-        # Декодируем только сгенерированную часть
-        response = self.tokenizer.decode(response_ids[0][inputs.input_ids.shape[1]:], skip_special_tokens=True)
-
-        # Обновляем историю
-        self.history.append({"role": "user", "content": user_input})
-        self.history.append({"role": "assistant", "content": response})
-
-        return response
+            
+            # Извлекаем ответ
+            full_text = outputs[0]['generated_text']
+            response = full_text.replace(prompt, "").strip()
+            
+            # Очищаем ответ от лишнего
+            if "\nUser:" in response:
+                response = response.split("\nUser:")[0]
+            
+            # Обновляем историю
+            self.history.append({"role": "user", "content": user_input})
+            self.history.append({"role": "assistant", "content": response})
+            
+            # Ограничиваем историю
+            if len(self.history) > 10:
+                self.history = self.history[-10:]
+                
+            return response
+            
+        except Exception as e:
+            return f"⚠️ Ошибка при генерации: {str(e)}"
 
 # # Example Usage
 # if __name__ == "__main__":
