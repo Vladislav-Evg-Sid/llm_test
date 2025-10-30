@@ -40,3 +40,6 @@ class LlamaChatbot:
         self.model.eval()
         
         print(f"✅ Модель загружена за {time.time()-start_time:.1f}сек")
+
+if __name__ == "__main__":
+    model = LlamaChatbot()
