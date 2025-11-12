@@ -4,14 +4,14 @@ services:
   llm:
     container_name: llm-dialog
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ./app
+      dockerfile: Dockerfile.llm
     stdin_open: true
     tty: true
     ports:
-      - "8080:8000"
+      - "8008:8008"
     volumes:
-      - .:/app
+      - ./app:/app
       - ./logs:/app/logs
     environment:
       - PYTHONPATH=/app
