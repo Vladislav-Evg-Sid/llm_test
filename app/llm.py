@@ -3,15 +3,18 @@ import torch
 import warnings
 
 
-class LlamaChatbot:
+class LLMReportGenerator:
     _instance = None
     _initialized = False
-
+    
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+    
     def __init__(self, model_name="TinyLlama/TinyLlama-1.1B-Chat-v1.0"):
-        if LlamaChatbot._initialized:
+        if LLMReportGenerator._initialized:
             return
-        print("🚀 Загрузка лёгкой модели...")
-        
         # Загружаем токенизатор
         self.tokenizer = AutoTokenizer.from_pretrained(
             model_name,
@@ -45,14 +48,8 @@ class LlamaChatbot:
         
         self.history = []
         print("✅ Модель успешно загружена и готова к работе!")
-        LlamaChatbot._initialized = True
-
-    @classmethod
-    def get_instance(cls):
-        if cls._instance is None:
-            cls._instance = LlamaChatbot()
-        return cls._instance
-
+        LLMReportGenerator._initialized = True
+    
     def generate_response(self, user_input):
         try:
             # Формируем промт для чата
