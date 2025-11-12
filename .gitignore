@@ -1,1 +1,4 @@
 *.txt
+*.env
+*.backup
+__pycache__

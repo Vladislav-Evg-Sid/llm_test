@@ -1,0 +1,11 @@
+FROM postgres:16.6-alpine
+
+COPY exam-stats.backup /backup/
+COPY restore.sh /docker-entrypoint-initdb.d/
+
+# конвертируем строки и даём права на исполнение
+RUN sed -i 's/\r$//' /docker-entrypoint-initdb.d/restore.sh && \
+    chmod +x /docker-entrypoint-initdb.d/restore.sh
+
+# Используем стандартные пути конфигурации
+CMD ["postgres", "-c", "config_file=/var/lib/postgresql/data/postgresql.conf", "-c", "hba_file=/var/lib/postgresql/data/pg_hba.conf"]
