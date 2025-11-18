@@ -23,7 +23,7 @@ services:
 
   qdrant:
     image: qdrant/qdrant:latest
-    container_name: qdrant_reports
+    container_name: llm-qdrant
     restart: unless-stopped
     ports:
       - "6333:6333"  # HTTP API
@@ -33,12 +33,6 @@ services:
     environment:
       - QDRANT__SERVICE__HTTP_PORT=6333
       - QDRANT__SERVICE__GRPC_PORT=6334
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6333/livez"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
 
   llm:
     container_name: llm-generate
@@ -57,8 +51,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      qdrant:
-        condition: service_healthy
+      # qdrant:
+        # condition: service_completed_successfully
 
 volumes:
   db-data:
