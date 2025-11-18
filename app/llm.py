@@ -1,9 +1,6 @@
-import os
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 import torch
-import logging
 
-logging.getLogger("transformers").setLevel(logging.ERROR)
 
 class LLMReportGenerator:
     _instance = None
@@ -14,60 +11,62 @@ class LLMReportGenerator:
             cls._instance = super().__new__(cls)
         return cls._instance
     
-    def __init__(self, model_path="./models/tinyllama"):
+    def __init__(self, model_name="microsoft/DialoGPT-small"):
         if LLMReportGenerator._initialized:
             return
             
-        print(f"🔄 Загрузка модели из {model_path}...")
+        print(f"⏳ Загружаем модель {model_name}...")
+        print("📥 Это может занять несколько минут...")
         
-        try:
-            # Загружаем из локальной директории
-            self.tokenizer = AutoTokenizer.from_pretrained(
-                model_path,
-                trust_remote_code=True,
-                local_files_only=True
-            )
-            
-            if self.tokenizer.pad_token is None:
-                self.tokenizer.pad_token = self.tokenizer.eos_token
-            
-            self.model = AutoModelForCausalLM.from_pretrained(
-                model_path,
-                torch_dtype=torch.float32,
-                device_map="cpu",
-                low_cpu_mem_usage=True,
-                trust_remote_code=True,
-                local_files_only=True
-            )
-            
-            self.model.eval()
-            
-            self.pipe = pipeline(
-                "text-generation",
-                model=self.model,
-                tokenizer=self.tokenizer,
-                torch_dtype=torch.float32,
-                device="cpu"
-            )
-            
-            self.history = []
-            print("✅ Модель успешно загружена из локальной директории!")
-            LLMReportGenerator._initialized = True
-            
-        except Exception as e:
-            print(f"❌ Ошибка загрузки модели: {e}")
-            self.pipe = None
+        # Загружаем токенизатор
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            model_name,
+            trust_remote_code=True
+        )
+        
+        # Устанавливаем pad_token если его нет
+        if self.tokenizer.pad_token is None:
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+        
+        # Загружаем модель
+        self.model = AutoModelForCausalLM.from_pretrained(
+            model_name,
+            torch_dtype=torch.float32,
+            device_map="cpu",
+            low_cpu_mem_usage=True,
+            trust_remote_code=True
+        )
+        
+        # Переводим в режим инференса
+        self.model.eval()
+        
+        # Создаём пайплайн для упрощённой работы
+        self.pipe = pipeline(
+            "text-generation",
+            model=self.model,
+            tokenizer=self.tokenizer,
+            torch_dtype=torch.float32,
+            device="cpu"
+        )
+        
+        self.history = []
+        print("✅ Модель успешно загружена и готова к работе!")
+        LLMReportGenerator._initialized = True
     
     def generate_response(self, user_input):
-        if self.pipe is None:
-            return "Модель не загружена. Сначала скачайте модель в ./models/tinyllama/"
-        
         try:
-            prompt = f"### Instruction: Ответь на вопрос\n### Question: {user_input}\n### Answer:"
+            # Формируем промт для чата
+            if self.history:
+                conversation = "\n".join([f"{'User' if i % 2 == 0 else 'Assistant'}: {msg['content']}" 
+                                        for i, msg in enumerate(self.history[-4:])])
+                prompt = f"{conversation}\nUser: {user_input}\nAssistant:"
+            else:
+                prompt = f"User: {user_input}\nAssistant:"
             
+            # Генерируем ответ
             outputs = self.pipe(
                 prompt,
-                max_new_tokens=100,
+                max_new_tokens=150,
                 do_sample=True,
                 temperature=0.7,
                 top_p=0.9,
@@ -76,13 +75,23 @@ class LLMReportGenerator:
                 num_return_sequences=1
             )
             
+            # Извлекаем ответ
             full_text = outputs[0]['generated_text']
             response = full_text.replace(prompt, "").strip()
             
-            if "###" in response:
-                response = response.split("###")[0].strip()
+            # Очищаем ответ от лишнего
+            if "\nUser:" in response:
+                response = response.split("\nUser:")[0]
+            
+            # Обновляем историю
+            self.history.append({"role": "user", "content": user_input})
+            self.history.append({"role": "assistant", "content": response})
+            
+            # Ограничиваем историю
+            if len(self.history) > 10:
+                self.history = self.history[-10:]
                 
             return response
             
         except Exception as e:
-            return f"Ошибка генерации: {str(e)}"
+            return f"⚠️ Ошибка при генерации: {str(e)}"
