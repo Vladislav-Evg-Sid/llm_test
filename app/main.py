@@ -1,27 +1,37 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 
-from llm_plug import LLMReportGenerator
+from llm import LLMReportGenerator
 from py_models import LLLMResponse
+import asyncio
 
-# Создаем экземпляр FastAPI
 app = FastAPI(title="Heavy Class Demo")
-
 
 @app.on_event("startup")
 async def startup_event():
-    """Инициализируем LlamaChatbot при запуске приложения"""
+    """Инициализируем модель при запуске"""
     print("🔄 Запуск приложения...")
-    # Просто получаем экземпляр - он автоматически инициализируется
-    heavy_instance = LLMReportGenerator()
+    
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(
+        None, 
+        lambda: LLMReportGenerator()
+    )
     print("✅ Приложение готово к работе")
-
 
 @app.post("/generate_text")
 async def generate_endpoint(user_request: str):
-    llm = LLMReportGenerator()
     result = LLLMResponse()
     try:
-        result.text = llm.generate_response(user_request)
-    except:
-        result.text = "Ошибка генерации"
+        # Используем синглтон - всегда получаем тот же экземпляр
+        llm = LLMReportGenerator()
+        
+        # Запускаем генерацию в отдельном потоке
+        response = await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: llm.generate_response(user_request)
+        )
+        result.text = response
+    except Exception as e:
+        result.text = f"Ошибка генерации: {str(e)}"
+    
     return result

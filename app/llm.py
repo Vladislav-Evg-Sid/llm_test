@@ -1,6 +1,5 @@
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 import torch
-import warnings
 
 
 class LLMReportGenerator:
