@@ -1,4 +1,6 @@
-from transformers import pipeline
+import os
+from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
+import torch
 import logging
 
 logging.getLogger("transformers").setLevel(logging.ERROR)
@@ -12,31 +14,75 @@ class LLMReportGenerator:
             cls._instance = super().__new__(cls)
         return cls._instance
     
-    def __init__(self, model_name="microsoft/DialoGPT-small"):
+    def __init__(self, model_path="./models/tinyllama"):
         if LLMReportGenerator._initialized:
             return
             
-        print("⏳ Загрузка легкой модели...")
+        print(f"🔄 Загрузка модели из {model_path}...")
         
-        # Используем готовый pipeline - он проще и быстрее
-        self.pipe = pipeline(
-            "text-generation",
-            model=model_name,
-            device="cpu"
-        )
-        
-        print("✅ Модель успешно загружена!")
-        LLMReportGenerator._initialized = True
+        try:
+            # Загружаем из локальной директории
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                model_path,
+                trust_remote_code=True,
+                local_files_only=True
+            )
+            
+            if self.tokenizer.pad_token is None:
+                self.tokenizer.pad_token = self.tokenizer.eos_token
+            
+            self.model = AutoModelForCausalLM.from_pretrained(
+                model_path,
+                torch_dtype=torch.float32,
+                device_map="cpu",
+                low_cpu_mem_usage=True,
+                trust_remote_code=True,
+                local_files_only=True
+            )
+            
+            self.model.eval()
+            
+            self.pipe = pipeline(
+                "text-generation",
+                model=self.model,
+                tokenizer=self.tokenizer,
+                torch_dtype=torch.float32,
+                device="cpu"
+            )
+            
+            self.history = []
+            print("✅ Модель успешно загружена из локальной директории!")
+            LLMReportGenerator._initialized = True
+            
+        except Exception as e:
+            print(f"❌ Ошибка загрузки модели: {e}")
+            self.pipe = None
     
     def generate_response(self, user_input):
+        if self.pipe is None:
+            return "Модель не загружена. Сначала скачайте модель в ./models/tinyllama/"
+        
         try:
-            # Простая генерация
-            result = self.pipe(
-                user_input,
-                max_new_tokens=50,
+            prompt = f"### Instruction: Ответь на вопрос\n### Question: {user_input}\n### Answer:"
+            
+            outputs = self.pipe(
+                prompt,
+                max_new_tokens=100,
                 do_sample=True,
-                temperature=0.7
+                temperature=0.7,
+                top_p=0.9,
+                repetition_penalty=1.1,
+                pad_token_id=self.tokenizer.eos_token_id,
+                num_return_sequences=1
             )
-            return result[0]['generated_text']
+            
+            full_text = outputs[0]['generated_text']
+            response = full_text.replace(prompt, "").strip()
+            
+            if "###" in response:
+                response = response.split("###")[0].strip()
+                
+            return response
+            
         except Exception as e:
-            return f"Ответ: {user_input} (режим эхо)"
+            return f"Ошибка генерации: {str(e)}"
