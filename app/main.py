@@ -1,7 +1,8 @@
 from fastapi import FastAPI, HTTPException
 
-from llm import LLMReportGenerator
-from py_models import LLLMResponse
+from llm_plug import LLMReportGenerator
+from qdrant_manager import QdrantReportsManager
+from py_models import *
 import asyncio
 
 app = FastAPI(title="Heavy Class Demo")
@@ -9,18 +10,22 @@ app = FastAPI(title="Heavy Class Demo")
 @app.on_event("startup")
 async def startup_event():
     """Инициализируем модель при запуске"""
-    print("🔄 Запуск приложения...")
+    async def LLM_init() -> LLMReportGenerator:
+        return LLMReportGenerator()
+    async def qdrant_client_init() -> QdrantReportsManager:
+        return QdrantReportsManager()
     
-    loop = asyncio.get_event_loop()
-    await loop.run_in_executor(
-        None, 
-        lambda: LLMReportGenerator()
-    )
+    print("🔄 Запуск приложения...")
+    qdrantClient = qdrant_client_init()
+    llm = LLM_init()
+    qdrantClient = await qdrantClient
+    qdrantClient.init_collection()
+    llm = await llm
     print("✅ Приложение готово к работе")
 
 @app.post("/generate_text")
 async def generate_endpoint(user_request: str):
-    result = LLLMResponse()
+    result = LLMResponse()
     try:
         # Используем синглтон - всегда получаем тот же экземпляр
         llm = LLMReportGenerator()
@@ -34,4 +39,10 @@ async def generate_endpoint(user_request: str):
     except Exception as e:
         result.text = f"Ошибка генерации: {str(e)}"
     
+    return result
+
+@app.post("/qdrant")
+async def qdrant_set_data(data: QdrantAddReportRequest) -> QdrantAddReportResponse:
+    qd_manager = QdrantReportsManager()
+    result = qd_manager.add_report(data)
     return result
