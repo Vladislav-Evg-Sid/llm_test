@@ -1,8 +1,18 @@
 from fastapi import FastAPI, HTTPException
+from pathlib import Path
+from dotenv import load_dotenv
+import os
 
-from llm import LLMReportGenerator
 from py_models import LLLMResponse
 import asyncio
+
+env_path = Path(__file__).resolve().parents[0] / ".env"
+load_dotenv(dotenv_path=env_path)
+
+if os.getenv('CURRENT_DEVICE') == "server":
+    from llm import LLMReportGenerator
+else:
+    from llm_plug import LLMReportGenerator
 
 app = FastAPI(title="Heavy Class Demo")
 

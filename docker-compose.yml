@@ -45,6 +45,7 @@ services:
       - "8008:8008"
     volumes:
       - ./app:/app
+      - ./.env:/app/.env
       - ./logs:/app/logs
     environment:
       - PYTHONPATH=/app
