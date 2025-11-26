@@ -55,7 +55,7 @@ class QdrantReportsManager:
         print("Installing vectorization model...")
         match self.vect_model_name:
             case 'bge-m3':
-                model_path = "/app/models_vectorization/bge-m3"
+                model_path = "/app/models/bge-m3"
                 print(f"Loading model from: {model_path}")
                 self.model = SentenceTransformer(model_path, device='cpu')
                 self.vector_size = 1024

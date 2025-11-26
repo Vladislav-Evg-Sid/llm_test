@@ -12,7 +12,7 @@ class QdrantCollectionResponse(BaseModel):
 
 class QdrantReportSection(BaseModel):
     code: str
-    text: str
+    text: str | list[str]
 
 class QdrantAddReportRequest(BaseModel):
     year: int
