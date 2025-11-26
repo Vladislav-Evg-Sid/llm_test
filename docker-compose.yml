@@ -1,8 +1,42 @@
 version: '3.8'
 
 services:
+  db:
+    build:
+      context: ./db
+      dockerfile: Dockerfile.db
+    container_name: llm-db
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5433:${DB_PORT}"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: llm-qdrant
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "${QDRANT_PORT_HTTP}:6333"
+      - "${QDRANT_PORT_GRPC}:6334"
+    volumes:
+      - qdrant-data:/qdrant/storage
+    environment:
+      - QDRANT__SERVICE__HTTP_PORT=${QDRANT_PORT_HTTP}
+      - QDRANT__SERVICE__GRPC_PORT=${QDRANT_PORT_GRPC}
+
   llm:
-    container_name: llm-dialog
+    container_name: llm-generate
     build:
       context: ./app
       dockerfile: Dockerfile.llm
@@ -12,6 +46,16 @@ services:
       - "8008:8008"
     volumes:
       - ./app:/app
+      - ./.env:/app/.env
       - ./logs:/app/logs
     environment:
       - PYTHONPATH=/app
+    # depends_on:
+      # db:
+        # condition: service_healthy
+      # qdrant:
+        # condition: service_completed_successfully
+
+volumes:
+  db-data:
+  qdrant-data:

@@ -1,6 +1,5 @@
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 import torch
-import warnings
 
 
 class LLMReportGenerator:
@@ -12,9 +11,13 @@ class LLMReportGenerator:
             cls._instance = super().__new__(cls)
         return cls._instance
     
-    def __init__(self, model_name="TinyLlama/TinyLlama-1.1B-Chat-v1.0"):
+    def __init__(self, model_name="microsoft/DialoGPT-small"):
         if LLMReportGenerator._initialized:
             return
+            
+        print(f"⏳ Загружаем модель {model_name}...")
+        print("📥 Это может занять несколько минут...")
+        
         # Загружаем токенизатор
         self.tokenizer = AutoTokenizer.from_pretrained(
             model_name,
@@ -25,7 +28,7 @@ class LLMReportGenerator:
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
         
-        # Загружаем модель с оптимизациями для CPU
+        # Загружаем модель
         self.model = AutoModelForCausalLM.from_pretrained(
             model_name,
             torch_dtype=torch.float32,
@@ -55,7 +58,7 @@ class LLMReportGenerator:
             # Формируем промт для чата
             if self.history:
                 conversation = "\n".join([f"{'User' if i % 2 == 0 else 'Assistant'}: {msg['content']}" 
-                                        for i, msg in enumerate(self.history[-4:])])  # Берём последние 4 сообщения
+                                        for i, msg in enumerate(self.history[-4:])])
                 prompt = f"{conversation}\nUser: {user_input}\nAssistant:"
             else:
                 prompt = f"User: {user_input}\nAssistant:"
@@ -92,22 +95,3 @@ class LLMReportGenerator:
             
         except Exception as e:
             return f"⚠️ Ошибка при генерации: {str(e)}"
-
-# # Example Usage
-# if __name__ == "__main__":
-#     test = input()
-#     if test == "n":
-#         exit(0)
-#     print("start")
-#     chatbot = LlamaChatbot()
-
-#     user_input = "Привет. Расскажи мне про теорему Пифагора"
-#     print(f"User: {user_input}")
-#     response = chatbot.generate_response(user_input)
-#     print(f"Bot: {response}")
-#     print("----------------------")
-#     print("Введи следующее сообщение:")
-#     user_input = input()
-#     response = chatbot.generate_response(user_input)
-#     print(f"Bot: {response}")
-#     print("----------------------")
