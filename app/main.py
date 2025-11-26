@@ -41,8 +41,30 @@ async def generate_endpoint(user_request: str):
     
     return result
 
-@app.post("/qdrant")
+@app.post("/qdrant", response_model=QdrantAddReportResponse)
 async def qdrant_set_data(data: QdrantAddReportRequest) -> QdrantAddReportResponse:
+    """Добавление отчёта в векторную БД"""
     qd_manager = QdrantReportsManager()
     result = qd_manager.add_report(data)
     return result
+
+@app.get("/qdrant/reports", response_model=QdrantAllReportsResponse)
+async def get_all_reports() -> QdrantAllReportsResponse:
+    """Получение списка всех отчётов"""
+    qd_manager = QdrantReportsManager()
+    return qd_manager.get_all_reports()
+
+@app.get("/qdrant/reports/{report_id}")
+async def get_report_by_id(report_id: str):
+    """Получение полных данных отчёта по ID"""
+    qd_manager = QdrantReportsManager()
+    report = qd_manager.get_report(report_id)
+    if report is None:
+        raise HTTPException(status_code=404, detail="Отчёт не найден")
+    return report
+
+@app.delete("/qdrant/reports/{report_id}", response_model=QdrantDeleteReportResponse)
+async def delete_report(report_id: str) -> QdrantDeleteReportResponse:
+    """Удаление отчёта по ID"""
+    qd_manager = QdrantReportsManager()
+    return qd_manager.delete_report(report_id)

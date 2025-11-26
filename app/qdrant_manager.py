@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 import uuid
 import numpy as np
 
-from py_models import QdrantCollectionResponse, QdrantAddReportResponse, QdrantAddReportRequest
+from py_models import *
 
 class QdrantReportsManager:
     """
@@ -55,14 +55,16 @@ class QdrantReportsManager:
         print("Installing vectorization model...")
         match self.vect_model_name:
             case 'bge-m3':
-                self.model = SentenceTransformer('BAAI/bge-m3')
+                model_path = "/app/models_vectorization/bge-m3"
+                print(f"Loading model from: {model_path}")
+                self.model = SentenceTransformer(model_path, device='cpu')
                 self.vector_size = 1024
                 self.tokenizer = None
                 self.chunk_size = None
             case 'all-mpnet-base-v2':
-                self.model = SentenceTransformer('sentence-transformers/all-mpnet-base-v2')
+                self.model = SentenceTransformer('sentence-transformers/all-mpnet-base-v2', device='cpu')
                 self.vector_size = 768
-                self.tokenizer = AutoTokenizer.from_pretrained('sentence-transformers/all-mpnet-base-v2')
+                self.tokenizer = AutoTokenizer.from_pretrained('sentence-transformers/all-mpnet-base-v2', device='cpu')
                 self.chunk_size = 384
         print("Installing completed")
         self._initialized = True
@@ -138,7 +140,7 @@ class QdrantReportsManager:
         
         return chunks
     
-    def _get_document_embeding(self, text: str) -> list[float]:
+    def _get_document_embedding(self, text: str) -> list[float]:
         """Возвращает вектор текста
         Использует разбиение по чанкам, если текст больше возможной длинны
         
@@ -165,46 +167,97 @@ class QdrantReportsManager:
         """Добавляет запись в векторную БД
         
         Args:
-            report_data (dict[str, int | str | dict[str, str]]): Словарь с данными, которые требуется записать
+            report_data (QdrantAddReportRequest): Модель данных, которые требуется записать
         
         Returns:
             QdrantAddReportResponse: Результат добавления записи, uuid записи, текст ошибки
         """
-        report_id = str(uuid.uuid4())
-        
-        ## Векторизация каждого раздела
-        sections = []
-        for section_title, section_text in report_data.sections:
-            section_vector = self._get_document_embeding(section_text)
-            sections.append({
-                "title": section_title,
-                "text": section_text,
-                "vector": section_vector.tolist()
-            })
-        
-        # Аггрегация разделов в вектор отчёта
-        full_text = "\n".join([sec.text for sec in report_data.sections])
-        report_vector = self._get_document_embeding(full_text)
-        
-        # Сохранение в Qdrant
-        self.client.upsert(
-            collection_name=self.collection_name,
-            points=[
-                models.PointStruct(
-                    id=report_id,
-                    vector=report_vector.tolist(),
-                    payload={
-                        "year": report_data.year,
-                        "super_subject_id": report_data.super_subject_id,
-                        "sections": sections
-                    }
+        try:
+            report_id = str(uuid.uuid4())
+            
+            ## Векторизация каждого раздела
+            sections = []
+            for section in report_data.sections:
+                section_vector = self._get_document_embedding(section.text)
+                sections.append({
+                    "code": section.code,
+                    "text": section.text,
+                    "vector": section_vector
+                })
+            
+            # Аггрегация разделов в вектор отчёта
+            full_text = "\n".join([sec.text for sec in report_data.sections])
+            report_vector = self._get_document_embedding(full_text)
+            
+            # Сохранение в Qdrant
+            self.client.upsert(
+                collection_name=self.collection_name,
+                points=[
+                    models.PointStruct(
+                        id=report_id,
+                        vector=report_vector,
+                        payload={
+                            "year": report_data.year,
+                            "title": report_data.title,
+                            "super_subject_id": report_data.super_subject_id,
+                            "exam_type": report_data.exam_type,
+                            "sections": sections
+                        }
+                    )
+                ]
+            )
+            
+            return QdrantAddReportResponse(
+                success=True,
+                id=report_id,
+                messange="Отчёт успешно добавлен"
+            )
+            
+        except Exception as e:
+            return QdrantAddReportResponse(
+                success=False,
+                id="",
+                messange=f"Ошибка при добавлении отчёта: {str(e)}"
+            )
+    
+    def get_all_reports(self) -> QdrantAllReportsResponse:
+        """Возвращает список всех отчётов (id + title)"""
+        try:
+            reports = []
+            next_page_offset = None
+            
+            # Обрабатываем пагинацию через scroll
+            while True:
+                scroll_result = self.client.scroll(
+                    collection_name=self.collection_name,
+                    limit=100,  # Количество точек за один запрос
+                    offset=next_page_offset,
+                    with_payload=True,
+                    with_vectors=False  # Нам не нужны векторы для списка
                 )
-            ]
-        )
-        return QdrantAddReportResponse(
-            success=True,
-            id=report_id
-        )
+                
+                # points - список точек, next_page_offset - смещение для следующей страницы
+                points, next_page_offset = scroll_result
+                
+                # Добавляем точки в результат
+                for point in points:
+                    reports.append(
+                        QdrantReportTitle(
+                            id=point.id,
+                            title=point.payload.get("title", "Без названия")
+                        )
+                    )
+                
+                # Если next_page_offset is None - значит это последняя страница
+                if next_page_offset is None:
+                    break
+            
+            print(f"📊 Найдено отчётов: {len(reports)}")
+            return QdrantAllReportsResponse(reports=reports)
+            
+        except Exception as e:
+            print(f"❌ Ошибка при получении списка отчётов: {e}")
+            return QdrantAllReportsResponse(reports=[])
     
     def get_report(self, report_id: str) -> Optional[Dict]:
         """Возвращает отчёт по id
@@ -221,9 +274,59 @@ class QdrantReportsManager:
                 ids=[report_id],
                 with_payload=True
             )
-            return points[0] if points else None
-        except:
+            
+            if points and len(points) > 0:
+                point = points[0]
+                return {
+                    "id": point.id,
+                    "payload": point.payload,
+                    "vector": point.vector
+                }
+            else:
+                return None
+                
+        except Exception as e:
+            print(f"Ошибка при получении отчёта: {e}")
             return None
+    
+    def delete_report(self, report_id: str) -> QdrantDeleteReportResponse:
+        """Удаляет отчёт по ID
+        
+        Args:
+            report_id: UUID отчёта для удаления
+            
+        Returns:
+            QdrantDeleteReportResponse: Результат операции
+        """
+        try:
+            # Сначала проверим, существует ли отчёт
+            existing_report = self.get_report(report_id)
+            if not existing_report:
+                return QdrantDeleteReportResponse(
+                    success=False,
+                    message=f"Отчёт с ID {report_id} не найден"
+                )
+            
+            # Удаляем отчёт
+            self.client.delete(
+                collection_name=self.collection_name,
+                points_selector=models.PointIdsList(
+                    points=[report_id]
+                )
+            )
+            
+            print(f"✅ Отчёт {report_id} успешно удалён")
+            return QdrantDeleteReportResponse(
+                success=True,
+                message=f"Отчёт {report_id} успешно удалён"
+            )
+            
+        except Exception as e:
+            print(f"❌ Ошибка при удалении отчёта {report_id}: {e}")
+            return QdrantDeleteReportResponse(
+                success=False,
+                message=f"Ошибка при удалении отчёта: {str(e)}"
+            )
     
     def get_report_by_parametrs(self, super_subject_id: int, year: int): # TODO Тоже должен возвращать модель
         try:
