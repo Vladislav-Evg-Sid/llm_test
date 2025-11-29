@@ -2,11 +2,10 @@ from fastapi import FastAPI, HTTPException
 from pathlib import Path
 from dotenv import load_dotenv
 import os
+import asyncio
 
 from qdrant_manager import QdrantReportsManager
 from py_models import *
-from py_models import LLLMResponse
-import asyncio
 
 env_path = Path(__file__).resolve().parents[0] / ".env"
 load_dotenv(dotenv_path=env_path)

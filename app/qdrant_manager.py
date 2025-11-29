@@ -3,7 +3,6 @@ from qdrant_client import QdrantClient
 from qdrant_client.http import models
 from qdrant_client.http.models import Filter, FieldCondition, MatchValue
 from sentence_transformers import SentenceTransformer
-from transformers import AutoTokenizer
 from typing import List, Dict, Optional, Any
 from pathlib import Path
 from dotenv import load_dotenv
@@ -61,11 +60,6 @@ class QdrantReportsManager:
                 self.vector_size = 1024
                 self.tokenizer = None
                 self.chunk_size = None
-            case 'all-mpnet-base-v2':
-                self.model = SentenceTransformer('sentence-transformers/all-mpnet-base-v2', device='cpu')
-                self.vector_size = 768
-                self.tokenizer = AutoTokenizer.from_pretrained('sentence-transformers/all-mpnet-base-v2', device='cpu')
-                self.chunk_size = 384
         print("Installing completed")
         self._initialized = True
     
