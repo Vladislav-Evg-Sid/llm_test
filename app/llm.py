@@ -1,6 +1,10 @@
+from huggingface_hub import snapshot_download
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 import torch
-import warnings
+import os
+
+
+# os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
 
 
 class LLMReportGenerator:
@@ -12,12 +16,23 @@ class LLMReportGenerator:
             cls._instance = super().__new__(cls)
         return cls._instance
     
-    def __init__(self, model_name="TinyLlama/TinyLlama-1.1B-Chat-v1.0"):
+    def __init__(self, model_name="Qwen/Qwen3-4B"):
         if LLMReportGenerator._initialized:
             return
-        # Загружаем токенизатор
+            
+        print(f"⏳ Загружаем модель {model_name}...")
+        print("📥 Это может занять несколько минут...")
+        
+        # Скачиваем модель через mirror
+        local_dir = snapshot_download(
+            repo_id=model_name,
+            local_dir=f"./models/{model_name.replace('/', '_')}",
+            endpoint="https://hf-mirror.com"
+        )
+        
+        # Загружаем токенизатор из локальной директории
         self.tokenizer = AutoTokenizer.from_pretrained(
-            model_name,
+            local_dir,
             trust_remote_code=True
         )
         
@@ -25,25 +40,28 @@ class LLMReportGenerator:
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
         
-        # Загружаем модель с оптимизациями для CPU
+        # Загружаем модель БЕЗ device_map для CPU
         self.model = AutoModelForCausalLM.from_pretrained(
-            model_name,
+            local_dir,
             torch_dtype=torch.float32,
-            device_map="cpu",
+            # device_map="cpu",  # Убираем эту строку
             low_cpu_mem_usage=True,
             trust_remote_code=True
         )
         
+        # Явно перемещаем модель на CPU
+        self.model = self.model.to('cpu')
+        
         # Переводим в режим инференса
         self.model.eval()
         
-        # Создаём пайплайн для упрощённой работы
+        # Создаём пайплайн БЕЗ указания device
         self.pipe = pipeline(
             "text-generation",
             model=self.model,
             tokenizer=self.tokenizer,
             torch_dtype=torch.float32,
-            device="cpu"
+            # device="cpu"  # Убираем эту строку
         )
         
         self.history = []
@@ -51,11 +69,13 @@ class LLMReportGenerator:
         LLMReportGenerator._initialized = True
     
     def generate_response(self, user_input):
+        print('*'*100)
+        print(user_input)
         try:
             # Формируем промт для чата
             if self.history:
                 conversation = "\n".join([f"{'User' if i % 2 == 0 else 'Assistant'}: {msg['content']}" 
-                                        for i, msg in enumerate(self.history[-4:])])  # Берём последние 4 сообщения
+                                        for i, msg in enumerate(self.history[-4:])])
                 prompt = f"{conversation}\nUser: {user_input}\nAssistant:"
             else:
                 prompt = f"User: {user_input}\nAssistant:"
@@ -74,6 +94,7 @@ class LLMReportGenerator:
             
             # Извлекаем ответ
             full_text = outputs[0]['generated_text']
+            print(full_text)
             response = full_text.replace(prompt, "").strip()
             
             # Очищаем ответ от лишнего
@@ -87,27 +108,7 @@ class LLMReportGenerator:
             # Ограничиваем историю
             if len(self.history) > 10:
                 self.history = self.history[-10:]
-                
             return response
             
         except Exception as e:
             return f"⚠️ Ошибка при генерации: {str(e)}"
-
-# # Example Usage
-# if __name__ == "__main__":
-#     test = input()
-#     if test == "n":
-#         exit(0)
-#     print("start")
-#     chatbot = LlamaChatbot()
-
-#     user_input = "Привет. Расскажи мне про теорему Пифагора"
-#     print(f"User: {user_input}")
-#     response = chatbot.generate_response(user_input)
-#     print(f"Bot: {response}")
-#     print("----------------------")
-#     print("Введи следующее сообщение:")
-#     user_input = input()
-#     response = chatbot.generate_response(user_input)
-#     print(f"Bot: {response}")
-#     print("----------------------")
