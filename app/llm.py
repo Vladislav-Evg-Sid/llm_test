@@ -1,7 +1,6 @@
 from huggingface_hub import snapshot_download
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 import torch
-import os
 
 
 # os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
