@@ -1,11 +1,14 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from pathlib import Path
 from dotenv import load_dotenv
 import os
 import asyncio
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from qdrant_manager import QdrantReportsManager
 from py_models import *
+from db.requests import RequestsForFirstSection
+from db.connect_db import get_async_session
 
 env_path = Path(__file__).resolve().parents[0] / ".env"
 load_dotenv(dotenv_path=env_path)
@@ -33,6 +36,7 @@ async def startup_event():
     llm = await llm
     print("✅ Приложение готово к работе")
 
+# Генерируем текст
 @app.post("/generate_text")
 async def generate_endpoint(user_request: str):
     result = LLMResponse()
@@ -51,6 +55,7 @@ async def generate_endpoint(user_request: str):
     
     return result
 
+# Взаимодействие с qdrant
 @app.post("/qdrant", response_model=QdrantAddReportResponse)
 async def qdrant_set_data(data: QdrantAddReportRequest) -> QdrantAddReportResponse:
     """Добавление отчёта в векторную БД"""
@@ -78,3 +83,55 @@ async def delete_report(report_id: str) -> QdrantDeleteReportResponse:
     """Удаление отчёта по ID"""
     qd_manager = QdrantReportsManager()
     return qd_manager.delete_report(report_id)
+
+# Запросы в БД !!!ТЕСТОВОЕ!!!
+@app.get("/db/test/query/count")
+async def test_querry(session: AsyncSession = Depends(get_async_session)) -> dict:
+    try:
+        manager = RequestsForFirstSection(year=2025, exam_type_id=4, subject_id=2, start_date="2024-05-27", end_date="2024-07-04")
+        result = await manager.getTable_count(session)
+        return {
+            "status": "correct",
+            "data": result
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "exception": e 
+        }
+
+@app.get("/db/test/query/sex")
+async def test_querry(session: AsyncSession = Depends(get_async_session)) -> dict:
+    manager = RequestsForFirstSection(year=2025, exam_type_id=4, subject_id=2, start_date="2024-05-27", end_date="2024-07-04")
+    result = await manager.getTable_sex(session)
+    return {
+        "status": "correct",
+        "data": result
+    }
+
+@app.get("/db/test/query/categories")
+async def test_querry(session: AsyncSession = Depends(get_async_session)) -> dict:
+    manager = RequestsForFirstSection(year=2025, exam_type_id=4, subject_id=2, start_date="2024-05-27", end_date="2024-07-04")
+    result = await manager.getTable_categories(session)
+    return {
+        "status": "correct",
+        "data": result
+    }
+
+@app.get("/db/test/query/schoolKinds")
+async def test_querry(session: AsyncSession = Depends(get_async_session)) -> dict:
+    manager = RequestsForFirstSection(year=2025, exam_type_id=4, subject_id=2, start_date="2024-05-27", end_date="2024-07-04")
+    result = await manager.getTable_schoolKinds(session)
+    return {
+        "status": "correct",
+        "data": result
+    }
+
+@app.get("/db/test/query/areas")
+async def test_querry(session: AsyncSession = Depends(get_async_session)) -> dict:
+    manager = RequestsForFirstSection(year=2025, exam_type_id=4, subject_id=2, start_date="2024-05-27", end_date="2024-07-04")
+    result = await manager.getTable_areas(session)
+    return {
+        "status": "correct",
+        "data": result
+    }
