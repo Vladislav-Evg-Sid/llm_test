@@ -4,6 +4,7 @@ from pydantic import BaseModel
 # Для LLM
 class LLMResponse(BaseModel):
     text: str = ""
+    time: int = 0
 
 # Для Qdrant
 class QdrantCollectionResponse(BaseModel):
