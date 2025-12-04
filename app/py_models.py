@@ -41,18 +41,28 @@ class QdrantDeleteReportResponse(BaseModel):
     message: str = ""
 
 # Для БД
-class Table_1_1(BaseModel):
-    years: list[int] = []
+class TableCNP(BaseModel):
+    category: list[int] = []
     counts: list[int] = []
     procents: list[float] = []
 
-class Table_1_2(BaseModel):
+class Table3PairCols(BaseModel):
     category: list[str] = []
     col_1: list[tuple[int, int, float]] = []
     col_2: list[tuple[int, int, float]] = []
     col_3: list[tuple[int, int, float]] = []
 
-class Table_1_5(BaseModel):
-    areas: list[str] = []
-    counts: list[int] = []
-    procents: list[float] = []
+class Table3Cols(BaseModel):
+    category: list[str] = []
+    col_1: list[tuple[int, float]] = []
+    col_2: list[tuple[int, float]] = []
+    col_3: list[tuple[int, float]] = []
+
+class TableDictribution(BaseModel):
+    data: list[int] = []
+    count: list[int] = []
+
+class TableStandart(BaseModel):
+    column_names: list[str] = []
+    str_names: list[str] = []
+    data: list[list[int | float]] = []

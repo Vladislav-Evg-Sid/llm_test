@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from qdrant_manager import QdrantReportsManager
 from py_models import *
-from db.requests import RequestsForFirstSection
+from db.requests import *
 from db.connect_db import get_async_session
 
 env_path = Path(__file__).resolve().parents[0] / ".env"
@@ -85,52 +85,23 @@ async def delete_report(report_id: str) -> QdrantDeleteReportResponse:
     return qd_manager.delete_report(report_id)
 
 # Запросы в БД !!!ТЕСТОВОЕ!!!
-@app.get("/db/test/query/count")
-async def test_querry(session: AsyncSession = Depends(get_async_session)) -> dict:
-    try:
-        manager = RequestsForFirstSection(year=2025, exam_type_id=4, subject_id=2, start_date="2024-05-27", end_date="2024-07-04")
-        result = await manager.getTable_count(session)
-        return {
-            "status": "correct",
-            "data": result
-        }
-    except Exception as e:
-        return {
-            "status": "error",
-            "exception": e 
-        }
-
-@app.get("/db/test/query/sex")
+@app.get("/db/test/query/all")
 async def test_querry(session: AsyncSession = Depends(get_async_session)) -> dict:
     manager = RequestsForFirstSection(year=2025, exam_type_id=4, subject_id=2, start_date="2024-05-27", end_date="2024-07-04")
-    result = await manager.getTable_sex(session)
-    return {
-        "status": "correct",
-        "data": result
-    }
-
-@app.get("/db/test/query/categories")
-async def test_querry(session: AsyncSession = Depends(get_async_session)) -> dict:
-    manager = RequestsForFirstSection(year=2025, exam_type_id=4, subject_id=2, start_date="2024-05-27", end_date="2024-07-04")
-    result = await manager.getTable_categories(session)
-    return {
-        "status": "correct",
-        "data": result
-    }
-
-@app.get("/db/test/query/schoolKinds")
-async def test_querry(session: AsyncSession = Depends(get_async_session)) -> dict:
-    manager = RequestsForFirstSection(year=2025, exam_type_id=4, subject_id=2, start_date="2024-05-27", end_date="2024-07-04")
-    result = await manager.getTable_schoolKinds(session)
-    return {
-        "status": "correct",
-        "data": result
-    }
-
-@app.get("/db/test/query/areas")
-async def test_querry(session: AsyncSession = Depends(get_async_session)) -> dict:
-    manager = RequestsForFirstSection(year=2025, exam_type_id=4, subject_id=2, start_date="2024-05-27", end_date="2024-07-04")
-    result = await manager.getTable_areas(session)
+    # result = await manager.getTable_areas(session)
+    # result = await manager.getTable_schoolKinds(session)
+    # result = await manager.getTable_categories(session)
+    # result = await manager.getTable_sex(session)
+    result = await manager.getTable_count(session)
+    # manager = RequestsForSecondSection(year=2025, exam_type_id=4, subject_id=2, start_date="2024-05-27", end_date="2024-07-04")
+    # result = await manager.getTable_scoreDictribution(session)
+    # result = await manager.getTable_resultDynamic(session)
+    # result = await manager.getTable_resultByStudCat(session)
+    # result = await manager.getTable_resultBySchoolTypes(session)
+    # result = await manager.getTable_resultBySex(session)
+    # result = await manager.getTable_resultByAreas(session)
+    # result = await manager.getTable_lowResults(session)
+    
     return {
         "status": "correct",
         "data": result
@@ -152,7 +123,7 @@ async def generate_section_one(session: AsyncSession = Depends(get_async_session
 1. Количество участников ЕГЭ по учебному предмету за 3 года:"""
     tableCount = await corutine_tableCount
     for i in range(3):
-        promt += f"\n1.{i+1}. {tableCount.years[i]} год:\n1.{i+1}.1. Количество: {tableCount.counts[i]}.\n1.{i+1}.2. Процент от общего чесла участников по всем прдметам: {tableCount.procents[i]}."
+        promt += f"\n1.{i+1}. {tableCount.category[i]} год:\n1.{i+1}.1. Количество: {tableCount.counts[i]}.\n1.{i+1}.2. Процент от общего чесла участников по всем прдметам: {tableCount.procents[i]}."
     
     promt += "\n\n2. Процентное соотношение юношей и девушек, учавствовавших в ЕГЭ за 3 года:\n"
     tableSex = await corutine_tableSex
@@ -180,8 +151,8 @@ async def generate_section_one(session: AsyncSession = Depends(get_async_session
     
     promt += "\n5. Количество участников ЕГЭ по учебному предмету по АТЕ региона:\n"
     tableAreas = await corutine_tableAreas
-    for i in range(len(tableAreas.areas)):
-        promt += f"""5.{i+1}. Наитемнование АТЕ: {tableAreas.areas[i]}
+    for i in range(len(tableAreas.category)):
+        promt += f"""5.{i+1}. Наитемнование АТЕ: {tableAreas.category[i]}
 5.{i+1}.1. Количество участников по учебному предмету: {tableAreas.counts[i]}.
 5.{i+1}.2. Процент от общего числа участников по всем предметам: {tableAreas.procents[i]}.\n"""
     
