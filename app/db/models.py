@@ -5,7 +5,7 @@ from sqlalchemy.dialects.postgresql import UUID
 
 import uuid
 from datetime import date, datetime
-from app.db.base import Base
+from db.base import Base
 
 from fastapi_users_db_sqlalchemy import SQLAlchemyBaseUserTableUUID
 

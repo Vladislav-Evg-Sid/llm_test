@@ -1,7 +1,7 @@
 from huggingface_hub import snapshot_download
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 import torch
-import os
+from time import time as time_now
 
 
 # os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
@@ -44,71 +44,51 @@ class LLMReportGenerator:
         self.model = AutoModelForCausalLM.from_pretrained(
             local_dir,
             torch_dtype=torch.float32,
-            # device_map="cpu",  # Убираем эту строку
+            device_map="cpu",  # Убираем эту строку
             low_cpu_mem_usage=True,
             trust_remote_code=True
         )
         
         # Явно перемещаем модель на CPU
-        self.model = self.model.to('cpu')
+        # self.model = self.model.to('cpu')
         
         # Переводим в режим инференса
         self.model.eval()
-        
-        # Создаём пайплайн БЕЗ указания device
-        self.pipe = pipeline(
-            "text-generation",
-            model=self.model,
-            tokenizer=self.tokenizer,
-            torch_dtype=torch.float32,
-            # device="cpu"  # Убираем эту строку
-        )
         
         self.history = []
         print("✅ Модель успешно загружена и готова к работе!")
         LLMReportGenerator._initialized = True
     
-    def generate_response(self, user_input):
-        print('*'*100)
-        print(user_input)
+    def generate_response(self, promt):
         try:
-            # Формируем промт для чата
-            if self.history:
-                conversation = "\n".join([f"{'User' if i % 2 == 0 else 'Assistant'}: {msg['content']}" 
-                                        for i, msg in enumerate(self.history[-4:])])
-                prompt = f"{conversation}\nUser: {user_input}\nAssistant:"
-            else:
-                prompt = f"User: {user_input}\nAssistant:"
+            start_time = time_now()
+            messages = [
+                {"role": "user", "content": promt}
+            ]
             
-            # Генерируем ответ
-            outputs = self.pipe(
-                prompt,
-                max_new_tokens=150,
-                do_sample=True,
-                temperature=0.7,
-                top_p=0.9,
-                repetition_penalty=1.1,
-                pad_token_id=self.tokenizer.eos_token_id,
-                num_return_sequences=1
+            text = self.tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True,
+                enable_thinking=False
             )
             
-            # Извлекаем ответ
-            full_text = outputs[0]['generated_text']
-            print(full_text)
-            response = full_text.replace(prompt, "").strip()
+            model_inputs = self.tokenizer([text], return_tensors="pt").to(self.model.device)
             
-            # Очищаем ответ от лишнего
-            if "\nUser:" in response:
-                response = response.split("\nUser:")[0]
+            generated_ids = self.model.generate(
+                **model_inputs,
+                max_new_tokens=32768
+            )
+            output_ids = generated_ids[0][len(model_inputs.input_ids[0]):].tolist()
+            response = self.tokenizer.decode(output_ids[:], skip_special_tokens=True).strip("\n")
             
-            # Обновляем историю
-            self.history.append({"role": "user", "content": user_input})
-            self.history.append({"role": "assistant", "content": response})
+            end_time = time_now()
             
-            # Ограничиваем историю
-            if len(self.history) > 10:
-                self.history = self.history[-10:]
-            return response
+            return {
+                "response": response,
+                "time": end_time - start_time
+            }
             
         except Exception as e:
             return f"⚠️ Ошибка при генерации: {str(e)}"
+    

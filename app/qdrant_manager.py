@@ -1,3 +1,7 @@
+from huggingface_hub import snapshot_download
+from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
+import torch
+
 import os
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
@@ -54,9 +58,13 @@ class QdrantReportsManager:
         print("Installing vectorization model...")
         match self.vect_model_name:
             case 'bge-m3':
-                model_path = "/app/models/bge-m3"
-                print(f"Loading model from: {model_path}")
-                self.model = SentenceTransformer(model_path, device='cpu')
+                local_dir = snapshot_download(
+                    repo_id=self.vect_model_name,
+                    local_dir=f"./models/{self.vect_model_name.replace('/', '_')}",
+                    endpoint="https://hf-mirror.com"
+                )
+                print(f"Loading model from: {local_dir}")
+                self.model = SentenceTransformer(local_dir, device='cpu')
                 self.vector_size = 1024
                 self.tokenizer = None
                 self.chunk_size = None

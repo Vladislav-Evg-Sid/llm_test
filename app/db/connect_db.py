@@ -3,11 +3,11 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, Asyn
 from dotenv import load_dotenv
 import os
 
-env_path = Path(__file__).resolve().parents[2] / ".env"
+env_path = Path(__file__).resolve().parents[1] / ".env"
 load_dotenv(dotenv_path=env_path)
 
 DB_NAME = os.getenv("DB_NAME")
-POSTGRES_HOST = os.getenv("DB_HOST")
+POSTGRES_HOST = os.getenv("POSTGRES_HOST")
 POSTGRES_USER = os.getenv("POSTGRES_USER")
 POSTGRES_PASSWORD = os.getenv('POSTGRES_PASSWORD')
 DB_PORT = os.getenv("DB_PORT")
