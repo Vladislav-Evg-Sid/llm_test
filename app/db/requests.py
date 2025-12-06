@@ -1,4 +1,4 @@
-from sqlalchemy import func, select, and_, or_, case, MetaData, types, desc, asc, Numeric, any_, not_, text, Table, Column, Select
+from sqlalchemy import func, select, and_, or_, case, MetaData, types, desc, asc, Numeric, any_, not_, text, Table, Column, Select, CTE
 from sqlalchemy.engine import Row
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import ProgrammingError
@@ -51,7 +51,7 @@ class RequestsForSections(ABC):
             group_by: list[Column] = [TestSchemes.exam_year],
             year_count: int = 3,
             dop_joins: list[tuple[Column, any]] = []
-        ):
+        ) -> tuple[CTE, CTE]:
         only_last_res = (
             select(
                 ExamResults.id.label("exam_id"),
@@ -84,7 +84,7 @@ class RequestsForSections(ABC):
         return all_students_count, only_last_res
     
     @abstractmethod
-    def _addClassTables(self):
+    def _addClassTables(self) -> None:
         pass
     
     @abstractmethod
@@ -92,7 +92,7 @@ class RequestsForSections(ABC):
         pass
 
 class RequestsForFirstSection(RequestsForSections):
-    def _addClassTables(self):
+    def _addClassTables(self) -> None:
         self._tables.count = None
         self._tables.sex = None
         self._tables.categories = None
@@ -108,6 +108,9 @@ class RequestsForFirstSection(RequestsForSections):
             self.getTable_schoolKinds(session),
             self.getTable_areas(session),
         ]
+        
+        if self.subject_id in (2, 22):
+            tables.append(self.getTable_profBaseMat(session))
         
         for corutine_table in tables:
             table = await corutine_table
@@ -444,6 +447,71 @@ class RequestsForFirstSection(RequestsForSections):
             result.str_names.append(a[0])
             result.data.append([a[1], float(a[2])])
         result.table_name = "Количество участников ЕГЭ по учебному предмету по АТЕ региона"
+        
+        self._tables.areas = result
+        
+        return result
+    
+    async def getTable_profBaseMat(self, session: AsyncSession) -> TableStandart:
+        """Формирует таблицу для сравнения часточности выбора профильной и базовой математики за 3 года
+        
+        Args:
+            session (AsyncSession): Сессия для взаимодействия с БД
+        
+        Returns:
+            TableStandart: Готовая таблица
+        """
+        only_last_res = (
+            select(
+                ExamResults.id.label("exam_id"),
+                func.row_number().over(
+                    partition_by = [ExamResults.student_id, TestSchemes.exam_year],
+                    order_by=ExamResults.exam_date.desc()
+                ).label("rn")
+            )
+            .join(TestSchemes, ExamResults.schema_id == TestSchemes.id)
+            .filter(
+                TestSchemes.exam_year.between(self.year-3, self.year),
+                TestSchemes.exam_type_id == self.exam_type_id,
+                TestSchemes.subject_id.in_([2, 22])
+                # ExamResults.exam_date.between(self.start_date, self.end_date)
+            )
+        ).cte("only_last_res")
+        
+        all_students_count = (
+            select(
+                TestSchemes.exam_year,
+                func.count(ExamResults.student_id).label("stud_count")
+            )
+            .join(TestSchemes, ExamResults.schema_id == TestSchemes.id)
+            .join(only_last_res, and_(only_last_res.c.exam_id == ExamResults.id, only_last_res.c.rn == 1))
+            .group_by(TestSchemes.exam_year)
+        ).cte("all_students_count")
+        
+        query = await session.execute(
+            select(
+                TestSchemes.exam_year,
+                self._calculteProcent(func.sum(case((TestSchemes.subject_id==2, 1), else_=0)), func.min(all_students_count.c.stud_count)),
+                self._calculteProcent(func.sum(case((TestSchemes.subject_id==22, 1), else_=0)), func.min(all_students_count.c.stud_count))
+            )
+            .join(ExamResults, ExamResults.schema_id == TestSchemes.id)
+            .join(only_last_res, and_(only_last_res.c.exam_id == ExamResults.id, only_last_res.c.rn == 1))
+            .join(all_students_count, all_students_count.c.exam_year == TestSchemes.exam_year)
+            .group_by(TestSchemes.exam_year)
+            .order_by(TestSchemes.exam_year)
+        )
+        
+        result = TableStandart(
+            column_names=[
+                "Год экзамена",
+                "Процент выбора профильной математики в году",
+                "Процент выбора базовой математики в году",
+            ]
+        )
+        for a in query.all():
+            result.str_names.append(a[0])
+            result.data.append([float(a[1]), float(a[2])])
+        result.table_name = "Распределение базовой и профильной метематики"
         
         self._tables.areas = result
         
