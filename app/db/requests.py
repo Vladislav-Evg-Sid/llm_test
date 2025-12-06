@@ -1,15 +1,17 @@
 from sqlalchemy import func, select, and_, or_, case, MetaData, types, desc, asc, Numeric, any_, not_, text, Table, Column, Select
 from sqlalchemy.engine import Row
 from sqlalchemy.dialects import postgresql
+from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased, InstrumentedAttribute
 from sqlalchemy.sql.expression import ColumnElement
-from db.models import *
+from decimal import Decimal
 
+from db.models import *
 from py_models import *
 
 
-class RequestsForFirstSection:
+class RequestsForSections:
     def __init__(self, year: int, exam_type_id:int , subject_id: int, start_date: str, end_date: str):
         """Создаёт наследник класса для дальней работы
 
@@ -37,9 +39,51 @@ class RequestsForFirstSection:
         Returns:
             ColumnElement: Итоговый столбец
         """
-        return func.cast(100.0 * func.nullif(part, 0) / all, Numeric(3, rounding))
-    
-    async def getTable_count(self, session: AsyncSession) -> Table_1_1:
+        return func.round(func.cast(100.0, Numeric) * func.coalesce(part, 0) / all, rounding)
+
+    def _getASC(
+            self,
+            dop_filters: list = [],
+            group_by: list[Column] = [TestSchemes.exam_year],
+            year_count: int = 3,
+            dop_joins: list[tuple[Column, any]] = []
+        ):
+        only_last_res = (
+            select(
+                ExamResults.id.label("exam_id"),
+                func.row_number().over(
+                    partition_by = [ExamResults.student_id, ExamResults.schema_id],
+                    order_by=ExamResults.exam_date.desc()
+                ).label("rn")
+            )
+            .join(TestSchemes, ExamResults.schema_id == TestSchemes.id)
+            .filter(
+                TestSchemes.exam_year.between(self.year+1-year_count, self.year),
+                TestSchemes.exam_type_id == self.exam_type_id,
+                # ExamResults.exam_date.between(self.start_date, self.end_date)
+                *dop_filters
+            )
+        ).cte("only_last_res")
+        
+        all_students_count = (
+            select(
+                *group_by,
+                func.count(ExamResults.student_id.distinct()).label("stud_count")
+            )
+            .join(TestSchemes, ExamResults.schema_id == TestSchemes.id)
+            .join(only_last_res, and_(only_last_res.c.exam_id == ExamResults.id, only_last_res.c.rn == 1))
+        )
+        for j in dop_joins:
+            all_students_count = all_students_count.join(j[0], j[1])
+        all_students_count = all_students_count.group_by(*group_by).cte("all_students_count")
+        
+        return all_students_count, only_last_res
+
+
+class RequestsForFirstSection(RequestsForSections):
+    """Класс, объединяющий все запросы, необходимые таблицы для формирования первого раздела
+    """
+    async def getTable_count(self, session: AsyncSession) -> TableCNP:
         """Формирует таблицу количества участников за текущий год и 2 предыдущих
 
         Args:
@@ -48,22 +92,14 @@ class RequestsForFirstSection:
         Returns:
             table_1_1: Итоговая таблица
         """
-        all_students_count = (
-            select(
-                TestSchemes.exam_year.label("year"),
-                func.count(ExamResults.student_id.distinct()).label("stud_count")
-            ).join(TestSchemes, ExamResults.schema_id == TestSchemes.id)
-            .filter(TestSchemes.exam_year.between(self.year-2, self.year))
-            .filter(TestSchemes.exam_type_id == self.exam_type_id)
-            # .filter(ExamResults.exam_date.between(self.start_date, self.end_date))
-            .group_by(TestSchemes.exam_year)
-        ).cte("all_students_count")
+        all_students_count, only_last_res = self._getASC()
         
         subjects_students_count = (
             select(
                 TestSchemes.exam_year.label("year"),
                 func.count(ExamResults.student_id.distinct()).label("stud_count")
             ).join(TestSchemes, TestSchemes.id == ExamResults.schema_id)
+            .join(only_last_res, and_(only_last_res.c.exam_id == ExamResults.id, only_last_res.c.rn == 1))
             .filter(TestSchemes.exam_year.between(self.year-2, self.year))
             .filter(TestSchemes.exam_type_id == self.exam_type_id)
             .filter(TestSchemes.subject_id == self.subject_id)
@@ -76,18 +112,29 @@ class RequestsForFirstSection:
                 subjects_students_count.c.stud_count,
                 self._calculteProcent(subjects_students_count.c.stud_count, all_students_count.c.stud_count)
             ).select_from(subjects_students_count)
-            .join(all_students_count, all_students_count.c.year == subjects_students_count.c.year)
+            .join(all_students_count, all_students_count.c.exam_year == subjects_students_count.c.year)
         )
         
-        result = Table_1_1()
-        for a in query.all():
-            result.years.append(a[0])
-            result.counts.append(a[1])
-            result.procents.append(a[2])
+        data = query.all()
+        
+        result = TableStandart(
+            column_names=[
+                f"{self.year-2} г. | чел.",
+                f"{self.year-2} г. | % от общего числа участников",
+                f"{self.year-1} г. | чел.",
+                f"{self.year-1} г. | % от общего числа участников",
+                f"{self.year} г. | чел.",
+                f"{self.year} г. | % от общего числа участников",
+            ],
+            data=[[0]*6]
+        )
+        
+        for i in range(len(data)):
+            result.data[0][i*2] = data[i][1]
+            result.data[0][i*2+1] = float(data[i][2])
         
         return result
-
-    async def getTable_sex(self, session: AsyncSession) -> Table_1_2:
+    async def getTable_sex(self, session: AsyncSession) -> TableStandart:
         """Формирует таблицу гендерного распределения участников по 3 годам
 
         Args:
@@ -96,16 +143,8 @@ class RequestsForFirstSection:
         Returns:
             table_1_2: Итоговая таблица
         """
-        all_students_count = (
-            select(
-                TestSchemes.exam_year.label("year"),
-                func.count(ExamResults.student_id.distinct()).label("stud_count")
-            ).join(TestSchemes, ExamResults.schema_id == TestSchemes.id)
-            .filter(TestSchemes.exam_year.between(self.year-2, self.year))
-            .filter(TestSchemes.exam_type_id == self.exam_type_id)
-            # .filter(ExamResults.exam_date.between(self.start_date, self.end_date))
-            .group_by(TestSchemes.exam_year)
-        ).cte("all_students_count")
+        categories = ["Женский","Мужской"]
+        all_students_count, only_last_res = self._getASC()
         
         subjects_students_count = (
             select(
@@ -114,6 +153,7 @@ class RequestsForFirstSection:
                 func.count(ExamResults.student_id.distinct()).label("stud_count")
             ).join(TestSchemes, TestSchemes.id == ExamResults.schema_id)
             .join(Students, Students.id == ExamResults.student_id)
+            .join(only_last_res, and_(only_last_res.c.exam_id == ExamResults.id, only_last_res.c.rn == 1))
             .filter(TestSchemes.exam_year.between(self.year-2, self.year))
             .filter(TestSchemes.exam_type_id == self.exam_type_id)
             .filter(TestSchemes.subject_id == self.subject_id)
@@ -123,29 +163,40 @@ class RequestsForFirstSection:
         
         query = await session.execute(
             select(
-                case((subjects_students_count.c.sex, "Женский"), else_ = "Мужской"),
+                case((subjects_students_count.c.sex, "Женский"), else_ = "Мужской").label("sex"),
                 subjects_students_count.c.year,
                 subjects_students_count.c.stud_count,
                 self._calculteProcent(subjects_students_count.c.stud_count, all_students_count.c.stud_count)
             ).select_from(subjects_students_count)
-            .join(all_students_count, all_students_count.c.year == subjects_students_count.c.year)
+            .join(all_students_count, all_students_count.c.exam_year == subjects_students_count.c.year)
+            .order_by("sex", subjects_students_count.c.year)
         )
         
-        result = Table_1_2()
-        for a in query.all():
-            if not a[0] in result.category:
-                result.category.append(a[0])
-            temp = (a[1], a[2], float(a[3]))
-            if a[1] == self.year - 2:
-                result.col_1.append(temp)
-            elif a[1] == self.year - 1:
-                result.col_2.append(temp)
-            elif a[1] == self.year:
-                result.col_3.append(temp)
+        data = query.all()
+        
+        result = TableStandart(
+            column_names=[
+                "Пол",
+                f"{self.year-2} г. | чел.",
+                f"{self.year-2} г. | % от общего числа участников",
+                f"{self.year-1} г. | чел.",
+                f"{self.year-1} г. | % от общего числа участников",
+                f"{self.year} г. | чел.",
+                f"{self.year} г. | % от общего числа участников",
+            ],
+            str_names=categories,
+            data=[[0]*6 for i in range(3)]
+        )
+        
+        for a in data:
+            ind_y = categories.index(a[0])
+            ind_x = (a[1] - self.year - 1) * 2
+            result.data[ind_y][ind_x] = a[2]
+            result.data[ind_y][ind_x+1] = float(a[3])
         
         return result
 
-    async def getTable_categories(self, session: AsyncSession) -> Table_1_2:
+    async def getTable_categories(self, session: AsyncSession) -> TableStandart:
         """Формирует таблицу по категориям участников
 
         Args:
@@ -155,17 +206,8 @@ class RequestsForFirstSection:
             Table_1_2: Таблица данных
         """
         categories = [1, 3, 4]
-        category_names: list[str] = ["ВТГ, обучающихся по программам СОО", "ВТГ, обучающихся по программам СПО", "ВПЛ"]
-        all_students_count = (
-            select(
-                TestSchemes.exam_year.label("year"),
-                func.count(ExamResults.student_id.distinct()).label("stud_count")
-            ).join(TestSchemes, ExamResults.schema_id == TestSchemes.id)
-            .filter(TestSchemes.exam_year.between(self.year-2, self.year))
-            .filter(TestSchemes.exam_type_id == self.exam_type_id)
-            # .filter(ExamResults.exam_date.between(self.start_date, self.end_date))
-            .group_by(TestSchemes.exam_year)
-        ).cte("all_students_count")
+        category_names = ["ВТГ, обучающихся по программам СОО", "ВТГ, обучающихся по программам СПО", "ВПЛ"]
+        all_students_count, only_last_res = self._getASC()
         
         subjects_students_count = (
             select(
@@ -174,9 +216,13 @@ class RequestsForFirstSection:
                 func.count(ExamResults.student_id.distinct()).label("stud_count")
             ).join(TestSchemes, TestSchemes.id == ExamResults.schema_id)
             .join(Students, Students.id == ExamResults.student_id)
-            .filter(TestSchemes.exam_year.between(self.year-2, self.year))
-            .filter(TestSchemes.exam_type_id == self.exam_type_id)
-            .filter(TestSchemes.subject_id == self.subject_id)
+            .join(only_last_res, and_(only_last_res.c.exam_id == ExamResults.id, only_last_res.c.rn == 1))
+            .filter(
+                TestSchemes.exam_year.between(self.year-2, self.year),
+                TestSchemes.exam_type_id == self.exam_type_id,
+                TestSchemes.subject_id == self.subject_id,
+                Students.category_id.in_(categories)
+            )
             .group_by(Students.category_id)
             .group_by(TestSchemes.exam_year)
         ).cte("subjects_students_count")
@@ -188,33 +234,35 @@ class RequestsForFirstSection:
                 subjects_students_count.c.stud_count,
                 self._calculteProcent(subjects_students_count.c.stud_count, all_students_count.c.stud_count)
             ).select_from(subjects_students_count)
-            .join(all_students_count, all_students_count.c.year == subjects_students_count.c.year)
+            .join(all_students_count, all_students_count.c.exam_year == subjects_students_count.c.year)
+            .order_by(subjects_students_count.c.category_id, subjects_students_count.c.year)
         )
         
-        result = Table_1_2()
-        result.category = category_names
-        for i in range(len(categories)):
-            result.col_1.append([self.year - 2, 0, 0])
-            result.col_2.append([self.year - 1, 0, 0])
-            result.col_3.append([self.year, 0, 0])
+        data = query.all()
         
-        for a in query.all():
-            str_num = None
-            for i in range(len(categories)):
-                if a[0] == categories[i]:
-                    str_num = i
-                    break
-            if str_num is None: continue
-            if a[1] == self.year - 2:
-                result.col_1[str_num] = (result.col_1[str_num][0], a[2], float(a[3]))
-            if a[1] == self.year - 1:
-                result.col_2[str_num] = (result.col_2[str_num][0], a[2], float(a[3]))
-            if a[1] == self.year:
-                result.col_3[str_num] = (result.col_3[str_num][0], a[2], float(a[3]))
+        result = TableStandart(
+            column_names=[
+                "Категория участника",
+                f"{self.year-2} г. | чел.",
+                f"{self.year-2} г. | % от общего числа участников",
+                f"{self.year-1} г. | чел.",
+                f"{self.year-1} г. | % от общего числа участников",
+                f"{self.year} г. | чел.",
+                f"{self.year} г. | % от общего числа участников",
+            ],
+            str_names=category_names,
+            data=[[0]*6 for i in range(3)]
+        )
+        
+        for a in data:
+            ind_y = categories.index(a[0])
+            ind_x = (a[1] - self.year - 1) * 2
+            result.data[ind_y][ind_x] = a[2]
+            result.data[ind_y][ind_x+1] = float(a[3])
         
         return result
 
-    async def getTable_schoolKinds(self, session: AsyncSession) -> Table_1_2:
+    async def getTable_schoolKinds(self, session: AsyncSession) -> TableStandart:
         """Формирует таблицу по видом ОО
 
         Args:
@@ -223,19 +271,11 @@ class RequestsForFirstSection:
         Returns:
             Table_1_2: Таблица данных
         """
-        all_students_count = (
-            select(
-                TestSchemes.exam_year.label("year"),
-                func.count(ExamResults.student_id.distinct()).label("stud_count")
-            ).join(TestSchemes, ExamResults.schema_id == TestSchemes.id)
-            .filter(TestSchemes.exam_year.between(self.year-2, self.year))
-            .filter(TestSchemes.exam_type_id == self.exam_type_id)
-            # .filter(ExamResults.exam_date.between(self.start_date, self.end_date))
-            .group_by(TestSchemes.exam_year)
-        ).cte("all_students_count")
+        all_students_count, only_last_res = self._getASC()
         
         subjects_students_count = (
             select(
+                SchoolKinds.code.label("code"),
                 SchoolKinds.name.label("school_kind"),
                 TestSchemes.exam_year.label("year"),
                 func.count(ExamResults.student_id.distinct()).label("stud_count")
@@ -243,39 +283,60 @@ class RequestsForFirstSection:
             .join(Students, Students.id == ExamResults.student_id)
             .join(Schools, Schools.code == Students.school_id)
             .join(SchoolKinds, SchoolKinds.code == Schools.kind_code)
-            .filter(TestSchemes.exam_year.between(self.year-2, self.year))
-            .filter(TestSchemes.exam_type_id == self.exam_type_id)
-            .filter(TestSchemes.subject_id == self.subject_id)
-            .group_by(SchoolKinds.name)
+            .join(only_last_res, and_(only_last_res.c.exam_id == ExamResults.id, only_last_res.c.rn == 1))
+            .filter(
+                TestSchemes.exam_year.between(self.year-2, self.year),
+                TestSchemes.exam_type_id == self.exam_type_id,
+                TestSchemes.subject_id == self.subject_id,
+                SchoolKinds.code.in_([101, 102, 103, 104, 1001, 2201])
+            )
+            .group_by(SchoolKinds.code)
             .group_by(TestSchemes.exam_year)
         ).cte("subjects_students_count")
         
-        query = await session.execute(
+        query = (
             select(
                 subjects_students_count.c.school_kind,
                 subjects_students_count.c.year,
                 subjects_students_count.c.stud_count,
                 self._calculteProcent(subjects_students_count.c.stud_count, all_students_count.c.stud_count)
             ).select_from(subjects_students_count)
-            .join(all_students_count, all_students_count.c.year == subjects_students_count.c.year)
+            .join(all_students_count, all_students_count.c.exam_year == subjects_students_count.c.year)
+            .order_by(subjects_students_count.c.code, subjects_students_count.c.year)
         )
         
-        result = Table_1_2()
-        for a in query.all():
-            if not a[0] in result.category:
-                result.category.append(a[0])
-            temp = (a[1], a[2], float(a[3]))
-            if a[1] == self.year - 2:
-                result.col_1.append(temp)
-            elif a[1] == self.year - 1:
-                result.col_2.append(temp)
-            elif a[1] == self.year:
-                result.col_3.append(temp)
+        query = await session.execute(query)
+        data = query.all()
         
+        result = TableStandart(
+            column_names=[
+                "Категория участника",
+                f"{self.year-2} г. | чел.",
+                f"{self.year-2} г. | % от общего числа участников",
+                f"{self.year-1} г. | чел.",
+                f"{self.year-1} г. | % от общего числа участников",
+                f"{self.year} г. | чел.",
+                f"{self.year} г. | % от общего числа участников",
+            ],
+            data=[[0]*6 for i in range(len(data)//3)]
+        )
+        ind_x = 0
+        ind_y = -1
+        for i in range(len(data)):
+            if data[i][0] in result.str_names:
+                result.data[ind_y][ind_x] = data[i][2]
+                result.data[ind_y][ind_x+1] = float(data[i][3])
+                ind_x += 2
+            else:
+                ind_y += 1
+                ind_x = 0
+                result.str_names.append(data[i][0])
+                result.data[ind_y][ind_x] = data[i][2]
+                result.data[ind_y][ind_x+1] = float(data[i][3])
+                ind_x += 2
         return result
 
-
-    async def getTable_areas(self, session: AsyncSession) -> Table_1_5:
+    async def getTable_areas(self, session: AsyncSession) -> TableStandart:
         """Формирует таблицу по АТЕ региона
 
         Args:
@@ -309,10 +370,437 @@ class RequestsForFirstSection:
             .group_by(Areas.code)
         )
         
-        result = Table_1_5()
+        result = TableStandart(
+            column_names=[
+                "Наименование АТЕ",
+                "Количество участников ЕГЭ по учебному предмету",
+                "% от общего числа участников в регионе",
+            ]
+        )
         for a in query.all():
-            result.areas.append(a[0])
-            result.counts.append(a[1])
-            result.procents.append(a[2])
+            result.str_names.append(a[0])
+            result.data.append([a[1], float(a[2])])
+        
+        return result
+
+
+class RequestsForSecondSection(RequestsForSections):
+    async def getTable_scoreDictribution(self, session: AsyncSession) -> TableStandart:
+        """Формирует таблицу распределения тестовых баллов
+
+        Args:
+            session (AsyncSession): Сессия для взаимодействия с БД
+
+        Returns:
+            TableDictribution: Готовая таблица
+        """
+        query = await session.execute(
+            select(
+                ExamResults.final_points,
+                func.count(ExamResults.student_id.distinct())
+            )
+            .join(TestSchemes, TestSchemes.id == ExamResults.schema_id)
+            .filter(
+                TestSchemes.exam_year.between(self.year-2, self.year),
+                TestSchemes.exam_type_id == self.exam_type_id,
+                TestSchemes.subject_id == self.subject_id
+            )
+            .group_by(ExamResults.final_points)
+            .order_by(ExamResults.final_points)
+        )
+        
+        result = TableStandart(column_names=["Балл", "Количество"])
+        for data in query.all():
+            result.str_names.append(data[0])
+            result.data.append(data[1])
+        
+        return result
+
+    async def _getTable_scoreRanges(
+            self,
+            session: AsyncSession,
+            group_by: list[Column],
+            dop_col: ColumnElement,
+            year_count: int,
+            dop_joins: list[tuple[Column, any]] = [],
+            dop_joins_for_cte: list[tuple[Column, any]] = [],
+        ) -> list[tuple[int | float]]:
+        """"""
+        all_students_count, only_last_res = self._getASC(
+            dop_filters=[TestSchemes.subject_id == self.subject_id],
+            year_count=year_count,
+            group_by=group_by,
+            dop_joins=dop_joins_for_cte,
+        )
+        
+        query = (
+            select(
+                *group_by,
+                self._calculteProcent(func.sum(case((ExamResults.score == 2, 1), else_=0)), func.min(all_students_count.c.stud_count)),
+                self._calculteProcent(func.sum(case((and_(ExamResults.score != 2, ExamResults.final_points < 61), 1), else_=0)), func.min(all_students_count.c.stud_count)),
+                self._calculteProcent(func.sum(case((ExamResults.final_points.between(61, 80), 1), else_=0)), func.min(all_students_count.c.stud_count)),
+                self._calculteProcent(func.sum(case((ExamResults.final_points.between(81, 100), 1), else_=0)), func.min(all_students_count.c.stud_count)),
+                dop_col
+            ).select_from(ExamResults)
+            .join(TestSchemes, TestSchemes.id == ExamResults.schema_id)
+            .join(only_last_res, and_(only_last_res.c.exam_id == ExamResults.id, only_last_res.c.rn == 1))
+        )
+        
+        for joins in dop_joins:
+            query = query.join(joins[0], joins[1])
+        
+        conditions = []
+        for i in range(len(group_by)):
+            conditions.append(all_students_count.c[i] == group_by[i])
+        query = query.join(all_students_count, *conditions)
+        
+        query = query.group_by(*group_by).order_by(*group_by)
+        
+        query = await session.execute(query)
+        
+        return query.all()
+
+    async def getTable_resultDynamic(self, session: AsyncSession) -> TableStandart:
+        """Формирует таблицу динамики результатов ЕГЭ в разрезе трёх лет
+
+        Args:
+            session (AsyncSession): Сессия для взаимодействия с БД
+
+        Returns:
+            Table3Cols: Готовая таблица
+        """
+        data = await self._getTable_scoreRanges(
+            session=session,
+            group_by=[TestSchemes.exam_year],
+            dop_col=func.round(func.avg(ExamResults.final_points), 1),
+            year_count=3
+        )
+        
+        result = TableStandart(
+            column_names=[
+                "Участников, набравших балл",
+                f"Год проведения ГИА | {self.year-2} г.",
+                f"Год проведения ГИА | {self.year-1} г.",
+                f"Год проведения ГИА | {self.year} г.",
+            ],
+            str_names=[
+                "ниже минимального балла, %",
+                "от минимального балла до 60 баллов, %",
+                "от 61 до 80 баллов, %",
+                "от 81 до 100 баллов, %",
+                "Средний тестовый балл",
+            ],
+            data = [[0]*3 for i in range(5)]
+        )
+        for i in range(len(data)):
+            for j in range(1, len(data[i])):
+                result.data[j-1][i] = float(data[i][j])
+        
+        return result
+
+    async def getTable_resultByStudCat(self, session: AsyncSession) -> TableStandart:
+        """Формирует таблицу динамики результатов ЕГЭ в разрезе категорий участников
+
+        Args:
+            session (AsyncSession): Сессия для взаимодействия с БД
+
+        Returns:
+            Table3Cols: Готовая таблица
+        """
+        categories = [1, 3, 4]
+        category_names = ["ВТГ, обучающихся по программам СОО", "ВТГ, обучающихся по программам СПО", "ВПЛ"]
+        
+        data = await self._getTable_scoreRanges(
+            session=session,
+            group_by=[Students.is_ovz, Students.category_id],
+            dop_col=func.count(Students.id),
+            year_count=1,
+            dop_joins=[(Students, Students.id == ExamResults.student_id)]
+        )
+        
+        result = TableStandart(
+            column_names=[
+                "Категории участников",
+                "Количество участников, чел.",
+                "Доля участников, у которых полученный тестовый балл | ниже минимального",
+                "Доля участников, у которых полученный тестовый балл | от минимального балла до 60 баллов",
+                "Доля участников, у которых полученный тестовый балл | от 61 до 80 баллов",
+                "Доля участников, у которых полученный тестовый балл | от 81 до 100 баллов",
+            ],
+            str_names=category_names+["Участники экзамена с ОВЗ"],
+            data=[[0]*5, [0]*5, [0]*5, [0]*5]
+        )
+        for d in data:
+            if d[0]:
+                for i in range(2, len(d)):
+                    if isinstance(d[i], Decimal):
+                        result.data[-1][i-1] = float(d[i])
+                    else:
+                        result.data[-1][0] += d[i]
+            else:
+                for c in range(len(categories)):
+                    if categories[c] == d[1]:
+                        for i in range(2, len(d)):
+                            if isinstance(d[i], Decimal):
+                                result.data[c][i-1] += float(d[i])
+                            else:
+                                result.data[c][0] += d[i]
+                        break
+        
+        return result
+
+    async def getTable_resultBySchoolTypes(self, session: AsyncSession) -> TableStandart:
+        """Формирует таблицу динамики результатов ЕГЭ в разрезе типов школ
+
+        Args:
+            session (AsyncSession): Сессия для взаимодействия с БД
+
+        Returns:
+            Table3Cols: Готовая таблица
+        """
+        data = await self._getTable_scoreRanges(
+            session=session,
+            group_by=[SchoolKinds.name],
+            dop_col=func.count(Students.id),
+            year_count=1,
+            dop_joins=[
+                (Students, Students.id == ExamResults.student_id),
+                (Schools, Schools.code == Students.school_id),
+                (SchoolKinds, SchoolKinds.code == Schools.kind_code)
+            ]
+        )
+        
+        result = TableStandart(
+            column_names=[
+                "Тип ОО",
+                "Количество участников, чел.",
+                "Доля участников, у которых полученный тестовый балл | ниже минимального",
+                "Доля участников, у которых полученный тестовый балл | от минимального балла до 60 баллов",
+                "Доля участников, у которых полученный тестовый балл | от 61 до 80 баллов",
+                "Доля участников, у которых полученный тестовый балл | от 81 до 100 баллов",
+            ]
+        )
+        for d in data:
+            result.str_names.append(d[0])
+            result.data.append([0]*5)
+            for i in range(1, len(d)):
+                if isinstance(d[i], Decimal):
+                    result.data[-1][i] = float(d[i])
+                else:
+                    result.data[-1][0] += d[i]
+        
+        return result
+
+    async def getTable_resultBySex(self, session: AsyncSession) -> TableStandart:
+        """Формирует таблицу динамики результатов ЕГЭ в разрезе пола участника
+
+        Args:
+            session (AsyncSession): Сессия для взаимодействия с БД
+
+        Returns:
+            Table3Cols: Готовая таблица
+        """
+        data = await self._getTable_scoreRanges(
+            session=session,
+            group_by=[Students.sex],
+            dop_col=func.count(Students.id),
+            year_count=1,
+            dop_joins=[
+                (Students, Students.id == ExamResults.student_id)
+            ],
+            dop_joins_for_cte=[
+                (Students, Students.id == ExamResults.student_id)
+            ]
+        )
+        
+        result = TableStandart(
+            column_names=[
+                "Пол",
+                "Количество участников, чел.",
+                "Доля участников, у которых полученный тестовый балл | ниже минимального",
+                "Доля участников, у которых полученный тестовый балл | от минимального балла до 60 баллов",
+                "Доля участников, у которых полученный тестовый балл | от 61 до 80 баллов",
+                "Доля участников, у которых полученный тестовый балл | от 81 до 100 баллов",
+            ]
+        )
+        for d in data:
+            result.str_names.append("женский" if d[0] else "мужской")
+            result.data.append([0]*5)
+            for i in range(1, len(d)):
+                if isinstance(d[i], Decimal):
+                    result.data[-1][i] = float(d[i])
+                else:
+                    result.data[-1][0] += d[i]
+        
+        return result
+
+    async def getTable_resultByAreas(self, session: AsyncSession) -> TableStandart:
+        """Формирует таблицу динамики результатов ЕГЭ в разрезе АТЕ региона
+
+        Args:
+            session (AsyncSession): Сессия для взаимодействия с БД
+
+        Returns:
+            Table3Cols: Готовая таблица
+        """
+        data = await self._getTable_scoreRanges(
+            session=session,
+            group_by=[func.concat(Areas.code, " - ", Areas.name)],
+            dop_col=func.count(Students.id),
+            year_count=1,
+            dop_joins=[
+                (Students, Students.id == ExamResults.student_id),
+                (Schools, Schools.code == Students.school_id),
+                (Areas, Areas.code == Schools.area_id),
+            ],
+            dop_joins_for_cte=[
+                (Students, Students.id == ExamResults.student_id),
+                (Schools, Schools.code == Students.school_id),
+                (Areas, Areas.code == Schools.area_id),
+            ]
+        )
+        
+        result = TableStandart(
+            column_names=[
+                "Наименование АТЕ",
+                "Количество участников, чел.",
+                "Доля участников, у которых полученный тестовый балл | ниже минимального",
+                "Доля участников, у которых полученный тестовый балл | от минимального балла до 60 баллов",
+                "Доля участников, у которых полученный тестовый балл | от 61 до 80 баллов",
+                "Доля участников, у которых полученный тестовый балл | от 81 до 100 баллов",
+            ]
+        )
+        for d in data:
+            result.str_names.append(d[0])
+            result.data.append([0]*5)
+            for i in range(1, len(d)):
+                if isinstance(d[i], Decimal):
+                    result.data[-1][i] = float(d[i])
+                else:
+                    result.data[-1][0] += d[i]
+        
+        return result
+
+    async def getTable_hightResults(self, session: AsyncSession) -> TableStandart:
+        """Формирует таблицу динамики для топ 14 лучших школ
+
+        Args:
+            session (AsyncSession): Сессия для взаимодействия с БД
+
+        Returns:
+            Table3Cols: Готовая таблица
+        """
+        all_students_count, only_last_res = self._getASC(
+            dop_filters=[TestSchemes.subject_id == self.subject_id],
+            year_count=1,
+            group_by=[func.concat(Schools.code, " - ", Schools.short_name)],
+            dop_joins=[
+                (Students, Students.id == ExamResults.student_id),
+                (Schools, Schools.code == Students.school_id),
+            ],
+        )
+        
+        query = (
+            select(
+                func.concat(Schools.code, " - ", Schools.short_name).label("str_names"),
+                self._calculteProcent(func.sum(case((ExamResults.score == 2, 1), else_=0)), func.min(all_students_count.c.stud_count)).label("to_order_4"),
+                self._calculteProcent(func.sum(case((and_(ExamResults.score != 2, ExamResults.final_points < 61), 1), else_=0)), func.min(all_students_count.c.stud_count)).label("to_order_3"),
+                self._calculteProcent(func.sum(case((ExamResults.final_points.between(61, 80), 1), else_=0)), func.min(all_students_count.c.stud_count)).label("to_order_2"),
+                self._calculteProcent(func.sum(case((ExamResults.final_points.between(81, 100), 1), else_=0)), func.min(all_students_count.c.stud_count)).label("to_order_1"),
+                func.count(Students.id)
+            ).select_from(ExamResults)
+            .join(TestSchemes, TestSchemes.id == ExamResults.schema_id)
+            .join(only_last_res, and_(only_last_res.c.exam_id == ExamResults.id, only_last_res.c.rn == 1))
+            .join(Students, Students.id == ExamResults.student_id)
+            .join(Schools, Schools.code == Students.school_id)
+            .join(all_students_count, all_students_count.c[0] == func.concat(Schools.code, " - ", Schools.short_name))
+            .group_by("str_names")
+            .order_by(desc("to_order_1"), desc("to_order_2"), desc("to_order_3"), desc("to_order_4"))
+            .limit(14)
+        )
+        
+        query = await session.execute(query)
+        data = query.all()
+        
+        result = TableStandart(
+            column_names=[
+                "Наименование АТЕ",
+                "Количество участников, чел.",
+                "Доля участников, у которых полученный тестовый балл | от 81 до 100 баллов",
+                "Доля участников, у которых полученный тестовый балл | от 61 до 80 баллов",
+                "Доля участников, у которых полученный тестовый балл | от минимального балла до 60 баллов",
+                "Доля участников, у которых полученный тестовый балл | ниже минимального",
+            ]
+        )
+        for d in data:
+            result.str_names.append(d[0])
+            result.data.append([0]*5)
+            for i in range(1, len(d)):
+                if isinstance(d[i], Decimal):
+                    result.data[-1][-i] = float(d[i])
+                else:
+                    result.data[-1][0] += d[i]
+        
+        return result
+
+    async def getTable_lowResults(self, session: AsyncSession) -> TableStandart:
+        """Формирует таблицу динамики для топ 14 лучших школ
+
+        Args:
+            session (AsyncSession): Сессия для взаимодействия с БД
+
+        Returns:
+            Table3Cols: Готовая таблица
+        """
+        all_students_count, only_last_res = self._getASC(
+            dop_filters=[TestSchemes.subject_id == self.subject_id],
+            year_count=1,
+            group_by=[func.concat(Schools.code, " - ", Schools.short_name)],
+            dop_joins=[
+                (Students, Students.id == ExamResults.student_id),
+                (Schools, Schools.code == Students.school_id),
+            ],
+        )
+        
+        query = (
+            select(
+                func.concat(Schools.code, " - ", Schools.short_name).label("str_names"),
+                self._calculteProcent(func.sum(case((ExamResults.score == 2, 1), else_=0)), func.min(all_students_count.c.stud_count)).label("to_order_1"),
+                self._calculteProcent(func.sum(case((and_(ExamResults.score != 2, ExamResults.final_points < 61), 1), else_=0)), func.min(all_students_count.c.stud_count)).label("to_order_2"),
+                self._calculteProcent(func.sum(case((ExamResults.final_points.between(61, 80), 1), else_=0)), func.min(all_students_count.c.stud_count)).label("to_order_3"),
+                self._calculteProcent(func.sum(case((ExamResults.final_points.between(81, 100), 1), else_=0)), func.min(all_students_count.c.stud_count)).label("to_order_4"),
+                func.count(Students.id)
+            ).select_from(ExamResults)
+            .join(TestSchemes, TestSchemes.id == ExamResults.schema_id)
+            .join(only_last_res, and_(only_last_res.c.exam_id == ExamResults.id, only_last_res.c.rn == 1))
+            .join(Students, Students.id == ExamResults.student_id)
+            .join(Schools, Schools.code == Students.school_id)
+            .join(all_students_count, all_students_count.c[0] == func.concat(Schools.code, " - ", Schools.short_name))
+            .group_by("str_names")
+            .order_by(desc("to_order_1"), desc("to_order_2"), desc("to_order_3"), desc("to_order_4"))
+            .limit(14)
+        )
+        
+        query = await session.execute(query)
+        data = query.all()
+        
+        result = TableStandart(
+            column_names=[
+                "Наименование АТЕ",
+                "Количество участников, чел.",
+                "Доля участников, у которых полученный тестовый балл | ниже минимального",
+                "Доля участников, у которых полученный тестовый балл | от минимального балла до 60 баллов",
+                "Доля участников, у которых полученный тестовый балл | от 61 до 80 баллов",
+                "Доля участников, у которых полученный тестовый балл | от 81 до 100 баллов",
+            ]
+        )
+        for d in data:
+            result.str_names.append(d[0])
+            result.data.append([0]*5)
+            for i in range(1, len(d)):
+                if isinstance(d[i], Decimal):
+                    result.data[-1][i] = float(d[i])
+                else:
+                    result.data[-1][0] += d[i]
         
         return result
