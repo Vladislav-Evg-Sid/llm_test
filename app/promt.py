@@ -94,9 +94,6 @@ async def generate_promt(session: AsyncSession, section_number: int) -> str:
         
         for row_number in range(len(current_table.str_names)):
             current_row = f"|{current_table.str_names[row_number]}|"
-            print('*'*100)
-            print(current_table.table_name)
-            print(current_table.data)
             for cell in current_table.data[row_number]:
                 current_row += f"{cell}|"
             promt += current_row + "\n"
