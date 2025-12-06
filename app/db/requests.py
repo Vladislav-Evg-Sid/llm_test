@@ -510,7 +510,7 @@ class RequestsForSecondSection(RequestsForSections):
         result = TableStandart(column_names=["Балл", "Количество"])
         for data in query.all():
             result.str_names.append(data[0])
-            result.data.append(data[1])
+            result.data.append([data[1]])
         result.table_name = "Диаграмма распределения тестовых баллов участников ЕГЭ по предмету в 2025 г."
         
         self._tables.scoreDictribution = result
@@ -565,7 +565,7 @@ class RequestsForSecondSection(RequestsForSections):
         conditions = []
         for i in range(len(group_by)):
             conditions.append(all_students_count.c[i] == group_by[i])
-        query = query.join(all_students_count, *conditions)
+        query = query.join(all_students_count, and_(*conditions))
         
         query = query.group_by(*group_by).order_by(*group_by)
         
@@ -637,7 +637,8 @@ class RequestsForSecondSection(RequestsForSections):
             group_by=[Students.is_ovz, Students.category_id],
             dop_col=func.count(Students.id),
             year_count=1,
-            dop_joins=[(Students, Students.id == ExamResults.student_id)]
+            dop_joins=[(Students, Students.id == ExamResults.student_id)],
+            dop_joins_for_cte=[(Students, Students.id == ExamResults.student_id)],
         )
         
         result = TableStandart(
