@@ -3,6 +3,22 @@ from db.requests import *
 from py_models import *
 
 
+def getSectionName(section: int) -> str:
+    """Временная функци. Заглушка вместо qdrant
+
+    Args:
+        section (int): Номер раздела
+
+    Returns:
+        str: Название раздела
+    """
+    match section:
+        case 1:
+            return "Выводы о характере изменения количества участников ЕГЭ по учебному предмету"
+        case 2:
+            return "Выводы о характере изменения результатов ЕГЭ по предмету"
+
+
 def getExampleTextForPromt(subject_code: int, year: int, section: int) -> str:
     """Временная функци. Заглушка вместо qdrant
 
@@ -31,8 +47,8 @@ def getExampleTextForPromt(subject_code: int, year: int, section: int) -> str:
 показателей (см. Таблицу 2-6):
 среднего балла («+6,6» с 2022 годом, «+7,2» с 2023 годом);
 участников, получивших баллы ниже минимальных («-4,3%» с 2022 годом и «-2,8%» с 2023 годом);
-участников, получивших баллы от 61 до 80 («-2,6%» с 2022 годом и «-0,9%» с 2023 годом;
-участников, получивших баллы от 81 до 100 («+11,3%» с 2022 годом и «+11,5%» с 2023 годом.
+участников, получивших баллы от 61 до 80 («-2,6%» с 2022 годом и «-0,9%» с 2023 годом);
+участников, получивших баллы от 81 до 100 («+11,3%» с 2022 годом и «+11,5%» с 2023 годом).
 Стоит заметить, что столь резкое увеличение среднего балла, а также увеличение участников, получивших баллы от 81 до 100 может
 быть обусловлено изменением шкалы перевода первичных баллов во вторичные, а также с облегчением варианта итогового экзамена по
 сравнению с прошлым годом.
@@ -56,7 +72,7 @@ async def getTablesBySection(
         case 1:
             manager = RequestsForFirstSection(year=2025, exam_type_id=4, subject_id=2, start_date="2024-05-27", end_date="2024-07-04")
         case 2:
-            manager = RequestsForFirstSection(year=2025, exam_type_id=4, subject_id=2, start_date="2024-05-27", end_date="2024-07-04")
+            manager = RequestsForSecondSection(year=2025, exam_type_id=4, subject_id=2, start_date="2024-05-27", end_date="2024-07-04")
     
     tables = await manager.getListOfTables(session=session)
     return tables
@@ -65,8 +81,8 @@ async def getTablesBySection(
 async def generate_promt(session: AsyncSession, section_number: int) -> str:
     tables = await getTablesBySection(session=session, section_number=section_number)
     
-    promt = """Действуй как председатель предметной комиссии по учебной дисциплине "Математика профильная".
-Твоя задача - составить раздел для отчёта, содержащий выводы о характере изменения количества участников ЕГЭ по профильной математике.
+    promt = f"""Действуй как председатель предметной комиссии по учебной дисциплине "Математика профильная".
+Твоя задача - составить раздел для отчёта, называющийся "{getSectionName(section=section_number)}".
 Делай выводы исходя из следующих данных:\n"""
     
     for table_number in range(len(tables)):
@@ -78,6 +94,9 @@ async def generate_promt(session: AsyncSession, section_number: int) -> str:
         
         for row_number in range(len(current_table.str_names)):
             current_row = f"|{current_table.str_names[row_number]}|"
+            print('*'*100)
+            print(current_table.table_name)
+            print(current_table.data)
             for cell in current_table.data[row_number]:
                 current_row += f"{cell}|"
             promt += current_row + "\n"
@@ -85,7 +104,7 @@ async def generate_promt(session: AsyncSession, section_number: int) -> str:
     promt += "\nИспользуй в качестве примера используй выводы из отчёта за 2024 год, вот  текст:"
     promt += f"""
 <example>
-{getExampleTextForPromt(subject_code=2, year=2025, section=1)}
+{getExampleTextForPromt(subject_code=2, year=2025, section=section_number)}
 <\example>
 """
     

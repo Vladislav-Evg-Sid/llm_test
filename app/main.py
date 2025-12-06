@@ -137,3 +137,32 @@ async def generate_section_one(session: AsyncSession = Depends(get_async_session
         result.text = f"Ошибка генерации: {str(e)}"
     
     return result
+
+# Формирование второго раздела
+@app.get("/report/generate/section/two")
+async def generate_section_one(session: AsyncSession = Depends(get_async_session)):
+    
+    promt = await generate_promt(session=session, section_number=2)
+    
+    print('*'*100)
+    with open ('promt.txt', 'w') as f:
+        f.write(promt)
+    print('='*100)
+    
+    # Генерируем ответ
+    result = LLMResponse()
+    try:
+        # Используем синглтон - всегда получаем тот же экземпляр
+        llm = LLMReportGenerator()
+        
+        # Запускаем генерацию в отдельном потоке
+        response = await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: llm.generate_response(promt)
+        )
+        result.text = response["response"]
+        result.time = response["time"]
+    except Exception as e:
+        result.text = f"Ошибка генерации: {str(e)}"
+    
+    return result
