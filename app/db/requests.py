@@ -6,15 +6,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased, InstrumentedAttribute
 from sqlalchemy.sql.expression import ColumnElement
 from decimal import Decimal
+from types import SimpleNamespace
+from abc import ABC, abstractmethod
 
 from db.models import *
 from py_models import *
 
 
-class RequestsForSections:
+class RequestsForSections(ABC):
     def __init__(self, year: int, exam_type_id:int , subject_id: int, start_date: str, end_date: str):
         """Создаёт наследник класса для дальней работы
-
+        
         Args:
             year (int): Текущий год
             exam_type_id (int): Код тип экзамена (4 (ЕГЭ)/6 (ОГЭ))
@@ -27,7 +29,9 @@ class RequestsForSections:
         self.subject_id = subject_id
         self.start_date = start_date
         self.end_date = end_date
-
+        self._tables = SimpleNamespace()
+        self._addClassTables()
+    
     def _calculteProcent(self, part: ColumnElement | InstrumentedAttribute | Column, all: ColumnElement | InstrumentedAttribute | Column, rounding: int = 1) -> ColumnElement:
         """Получаем процент от числа
 
@@ -40,7 +44,7 @@ class RequestsForSections:
             ColumnElement: Итоговый столбец
         """
         return func.round(func.cast(100.0, Numeric) * func.coalesce(part, 0) / all, rounding)
-
+    
     def _getASC(
             self,
             dop_filters: list = [],
@@ -78,20 +82,51 @@ class RequestsForSections:
         all_students_count = all_students_count.group_by(*group_by).cte("all_students_count")
         
         return all_students_count, only_last_res
-
+    
+    @abstractmethod
+    def _addClassTables(self):
+        pass
+    
+    @abstractmethod
+    async def getListOfTables(self, session: AsyncSession) -> list[TableStandart]:
+        pass
 
 class RequestsForFirstSection(RequestsForSections):
-    """Класс, объединяющий все запросы, необходимые таблицы для формирования первого раздела
-    """
-    async def getTable_count(self, session: AsyncSession) -> TableCNP:
+    def _addClassTables(self):
+        self._tables.count = None
+        self._tables.sex = None
+        self._tables.categories = None
+        self._tables.schoolKinds = None
+        self._tables.areas = None
+    
+    async def getListOfTables(self, session: AsyncSession) -> list[TableStandart]:
+        result = []
+        tables = [
+            self.getTable_count(session),
+            self.getTable_sex(session),
+            self.getTable_categories(session),
+            self.getTable_schoolKinds(session),
+            self.getTable_areas(session),
+        ]
+        
+        for corutine_table in tables:
+            table = await corutine_table
+            result.append(table)
+        
+        return result
+    
+    async def getTable_count(self, session: AsyncSession) -> TableStandart:
         """Формирует таблицу количества участников за текущий год и 2 предыдущих
-
+        
         Args:
             session (AsyncSession): Сессия для взаимодействия с БД
-
+        
         Returns:
-            table_1_1: Итоговая таблица
+            TableStandart: Итоговая таблица
         """
+        if self._tables.count is not None:
+            return self._tables.count
+        
         all_students_count, only_last_res = self._getASC()
         
         subjects_students_count = (
@@ -132,17 +167,24 @@ class RequestsForFirstSection(RequestsForSections):
         for i in range(len(data)):
             result.data[0][i*2] = data[i][1]
             result.data[0][i*2+1] = float(data[i][2])
+        result.table_name = "Количество участников ЕГЭ по учебному предмету (за 3 года)"
+        
+        self._tables.count = result
         
         return result
+    
     async def getTable_sex(self, session: AsyncSession) -> TableStandart:
         """Формирует таблицу гендерного распределения участников по 3 годам
-
+        
         Args:
             session (AsyncSession): Сессия для взаимодействия с БД
-
+        
         Returns:
-            table_1_2: Итоговая таблица
+            TableStandart: Итоговая таблица
         """
+        if self._tables.sex is not None:
+            return self._tables.sex
+        
         categories = ["Женский","Мужской"]
         all_students_count, only_last_res = self._getASC()
         
@@ -193,18 +235,26 @@ class RequestsForFirstSection(RequestsForSections):
             ind_x = (a[1] - self.year - 1) * 2
             result.data[ind_y][ind_x] = a[2]
             result.data[ind_y][ind_x+1] = float(a[3])
+            
+            self._tables.sex = result
+        result.table_name = "Процентное соотношение юношей и девушек, участвующих в ЕГЭ (за 3 года)"
+        
+        self._tables.sex = result
         
         return result
-
+    
     async def getTable_categories(self, session: AsyncSession) -> TableStandart:
         """Формирует таблицу по категориям участников
-
+        
         Args:
             session (AsyncSession): Сессия для взаимодействия с БД
-
+        
         Returns:
-            Table_1_2: Таблица данных
+            TableStandart: Таблица данных
         """
+        if self._tables.categories is not None:
+            return self._tables.categories
+        
         categories = [1, 3, 4]
         category_names = ["ВТГ, обучающихся по программам СОО", "ВТГ, обучающихся по программам СПО", "ВПЛ"]
         all_students_count, only_last_res = self._getASC()
@@ -259,18 +309,24 @@ class RequestsForFirstSection(RequestsForSections):
             ind_x = (a[1] - self.year - 1) * 2
             result.data[ind_y][ind_x] = a[2]
             result.data[ind_y][ind_x+1] = float(a[3])
+        result.table_name = "Количество участников экзамена в регионе по категориям (за 3 года)"
+        
+        self._tables.categories = result
         
         return result
-
+    
     async def getTable_schoolKinds(self, session: AsyncSession) -> TableStandart:
         """Формирует таблицу по видом ОО
-
+        
         Args:
             session (AsyncSession): Сессия для взаимодействия с БД
-
+        
         Returns:
-            Table_1_2: Таблица данных
+            TableStandart: Таблица данных
         """
+        if self._tables.schoolKinds is not None:
+            return self._tables.schoolKinds
+        
         all_students_count, only_last_res = self._getASC()
         
         subjects_students_count = (
@@ -334,17 +390,24 @@ class RequestsForFirstSection(RequestsForSections):
                 result.data[ind_y][ind_x] = data[i][2]
                 result.data[ind_y][ind_x+1] = float(data[i][3])
                 ind_x += 2
+        result.table_name = "Количество участников экзамена в регионе по типам ОО"
+        
+        self._tables.schoolKinds = result
+        
         return result
-
+    
     async def getTable_areas(self, session: AsyncSession) -> TableStandart:
         """Формирует таблицу по АТЕ региона
-
+        
         Args:
             session (AsyncSession): Сессия для взаимодействия с БД
-
+        
         Returns:
-            Table_1_5: Итоговая таблица
+            TableStandart: Итоговая таблица
         """
+        if self._tables.areas is not None:
+            return self._tables.areas
+        
         all_students_count_query = await session.execute(
             select(
                 func.count(ExamResults.student_id.distinct()).label("stud_count")
@@ -380,20 +443,55 @@ class RequestsForFirstSection(RequestsForSections):
         for a in query.all():
             result.str_names.append(a[0])
             result.data.append([a[1], float(a[2])])
+        result.table_name = "Количество участников ЕГЭ по учебному предмету по АТЕ региона"
+        
+        self._tables.areas = result
         
         return result
 
 
 class RequestsForSecondSection(RequestsForSections):
+    def _addClassTables(self):
+        self._tables.scoreDictribution = None
+        self._tables.resultDynamic = None
+        self._tables.resultByStudCat = None
+        self._tables.resultBySchoolTypes = None
+        self._tables.resultBySex = None
+        self._tables.resultByAreas = None
+        self._tables.hightResults = None
+        self._tables.lowResults = None
+    
+    async def getListOfTables(self, session: AsyncSession) -> list[TableStandart]:
+        result = []
+        tables = [
+            self.getTable_scoreDictribution(session),
+            self.getTable_resultDynamic(session),
+            self.getTable_resultByStudCat(session),
+            self.getTable_resultBySchoolTypes(session),
+            self.getTable_resultBySex(session),
+            self.getTable_resultByAreas(session),
+            self.getTable_hightResults(session),
+            self.getTable_lowResults(session),
+        ]
+        
+        for corutine_table in tables:
+            table = await corutine_table
+            result.append(table)
+        
+        return result
+    
     async def getTable_scoreDictribution(self, session: AsyncSession) -> TableStandart:
         """Формирует таблицу распределения тестовых баллов
-
+        
         Args:
             session (AsyncSession): Сессия для взаимодействия с БД
-
+        
         Returns:
-            TableDictribution: Готовая таблица
+            TableDicTableStandarttribution: Готовая таблица
         """
+        if self._tables.scoreDictribution is not None:
+            return self._tables.scoreDictribution
+        
         query = await session.execute(
             select(
                 ExamResults.final_points,
@@ -413,9 +511,12 @@ class RequestsForSecondSection(RequestsForSections):
         for data in query.all():
             result.str_names.append(data[0])
             result.data.append(data[1])
+        result.table_name = "Диаграмма распределения тестовых баллов участников ЕГЭ по предмету в 2025 г."
+        
+        self._tables.scoreDictribution = result
         
         return result
-
+    
     async def _getTable_scoreRanges(
             self,
             session: AsyncSession,
@@ -425,7 +526,19 @@ class RequestsForSecondSection(RequestsForSections):
             dop_joins: list[tuple[Column, any]] = [],
             dop_joins_for_cte: list[tuple[Column, any]] = [],
         ) -> list[tuple[int | float]]:
-        """"""
+        """Дополнительный метод, обобщающий логику формирования таблиц результатов участников по диапазонам баллов
+        
+        Args:
+            session (AsyncSession): Сессия для взаимодействия с БД
+            group_by (list[Column]): Параметры группировки
+            dop_col (ColumnElement): Дополнительная колонка
+            year_count (int): Для диапазона лет (обычно 1 или 3)
+            dop_joins (list[tuple[Column, any]], optional): Дополнительные JOIN таблиц для связности запроса. Defaults to [].
+            dop_joins_for_cte (list[tuple[Column, any]], optional): Дополнительные JOIN для подзапроса. Defaults to [].
+        
+        Returns:
+            list[tuple[int | float]]: Результат запроса
+        """
         all_students_count, only_last_res = self._getASC(
             dop_filters=[TestSchemes.subject_id == self.subject_id],
             year_count=year_count,
@@ -459,16 +572,19 @@ class RequestsForSecondSection(RequestsForSections):
         query = await session.execute(query)
         
         return query.all()
-
+    
     async def getTable_resultDynamic(self, session: AsyncSession) -> TableStandart:
         """Формирует таблицу динамики результатов ЕГЭ в разрезе трёх лет
-
+        
         Args:
             session (AsyncSession): Сессия для взаимодействия с БД
-
+        
         Returns:
-            Table3Cols: Готовая таблица
+            TableStandart: Готовая таблица
         """
+        if self._tables.resultDynamic is not None:
+            return self._tables.resultDynamic
+        
         data = await self._getTable_scoreRanges(
             session=session,
             group_by=[TestSchemes.exam_year],
@@ -495,18 +611,24 @@ class RequestsForSecondSection(RequestsForSections):
         for i in range(len(data)):
             for j in range(1, len(data[i])):
                 result.data[j-1][i] = float(data[i][j])
+        result.table_name = "Динамика результатов ЕГЭ по предмету за последние 3 года"
+        
+        self._tables.resultDynamic = result
         
         return result
-
+    
     async def getTable_resultByStudCat(self, session: AsyncSession) -> TableStandart:
         """Формирует таблицу динамики результатов ЕГЭ в разрезе категорий участников
-
+        
         Args:
             session (AsyncSession): Сессия для взаимодействия с БД
-
+        
         Returns:
-            Table3Cols: Готовая таблица
+            TableStandart: Готовая таблица
         """
+        if self._tables.resultByStudCat is not None:
+            return self._tables.resultByStudCat
+        
         categories = [1, 3, 4]
         category_names = ["ВТГ, обучающихся по программам СОО", "ВТГ, обучающихся по программам СПО", "ВПЛ"]
         
@@ -546,18 +668,24 @@ class RequestsForSecondSection(RequestsForSections):
                             else:
                                 result.data[c][0] += d[i]
                         break
+        result.table_name = "Результаты ЕГЭ по учебному предмету по группам участников экзамена с различным уровнем подготовки в разрезе категории участника ЕГЭ"
+        
+        self._tables.resultByStudCat = result
         
         return result
-
+    
     async def getTable_resultBySchoolTypes(self, session: AsyncSession) -> TableStandart:
         """Формирует таблицу динамики результатов ЕГЭ в разрезе типов школ
-
+        
         Args:
             session (AsyncSession): Сессия для взаимодействия с БД
-
+        
         Returns:
-            Table3Cols: Готовая таблица
+            TableStandart: Готовая таблица
         """
+        if self._tables.resultBySchoolTypes is not None:
+            return self._tables.resultBySchoolTypes
+        
         data = await self._getTable_scoreRanges(
             session=session,
             group_by=[SchoolKinds.name],
@@ -588,18 +716,24 @@ class RequestsForSecondSection(RequestsForSections):
                     result.data[-1][i] = float(d[i])
                 else:
                     result.data[-1][0] += d[i]
+        result.table_name = "Результаты ЕГЭ по учебному предмету по группам участников экзамена с различным уровнем подготовки в разрезе типа ОО"
+        
+        self._tables.resultBySchoolTypes = result
         
         return result
-
+    
     async def getTable_resultBySex(self, session: AsyncSession) -> TableStandart:
         """Формирует таблицу динамики результатов ЕГЭ в разрезе пола участника
-
+        
         Args:
             session (AsyncSession): Сессия для взаимодействия с БД
-
+        
         Returns:
-            Table3Cols: Готовая таблица
+            TableStandart: Готовая таблица
         """
+        if self._tables.resultBySex is not None:
+            return self._tables.resultBySex
+        
         data = await self._getTable_scoreRanges(
             session=session,
             group_by=[Students.sex],
@@ -631,18 +765,24 @@ class RequestsForSecondSection(RequestsForSections):
                     result.data[-1][i] = float(d[i])
                 else:
                     result.data[-1][0] += d[i]
+        result.table_name = "Результаты ЕГЭ по учебному предмету по группам участников экзамена с различным уровнем подготовки юношей и девушек"
+        
+        self._tables.resultBySex = result
         
         return result
-
+    
     async def getTable_resultByAreas(self, session: AsyncSession) -> TableStandart:
         """Формирует таблицу динамики результатов ЕГЭ в разрезе АТЕ региона
-
+        
         Args:
             session (AsyncSession): Сессия для взаимодействия с БД
-
+        
         Returns:
-            Table3Cols: Готовая таблица
+            TableStandart: Готовая таблица
         """
+        if self._tables.resultByAreas is not None:
+            return self._tables.resultByAreas
+        
         data = await self._getTable_scoreRanges(
             session=session,
             group_by=[func.concat(Areas.code, " - ", Areas.name)],
@@ -678,18 +818,24 @@ class RequestsForSecondSection(RequestsForSections):
                     result.data[-1][i] = float(d[i])
                 else:
                     result.data[-1][0] += d[i]
+        result.table_name = "Результаты ЕГЭ по учебному предмету по группам участников экзамена с различным уровнем подготовки в сравнении по АТЕ"
+        
+        self._tables.resultByAreas = result
         
         return result
-
+    
     async def getTable_hightResults(self, session: AsyncSession) -> TableStandart:
         """Формирует таблицу динамики для топ 14 лучших школ
-
+        
         Args:
             session (AsyncSession): Сессия для взаимодействия с БД
-
+        
         Returns:
-            Table3Cols: Готовая таблица
+            TableStandart: Готовая таблица
         """
+        if self._tables.hightResults is not None:
+            return self._tables.hightResults
+        
         all_students_count, only_last_res = self._getASC(
             dop_filters=[TestSchemes.subject_id == self.subject_id],
             year_count=1,
@@ -740,18 +886,24 @@ class RequestsForSecondSection(RequestsForSections):
                     result.data[-1][-i] = float(d[i])
                 else:
                     result.data[-1][0] += d[i]
+        result.table_name = "Перечень ОО, продемонстрировавших наиболее высокие результаты ЕГЭ по предмету"
+        
+        self._tables.hightResults = result
         
         return result
-
+    
     async def getTable_lowResults(self, session: AsyncSession) -> TableStandart:
         """Формирует таблицу динамики для топ 14 лучших школ
-
+        
         Args:
             session (AsyncSession): Сессия для взаимодействия с БД
-
+        
         Returns:
-            Table3Cols: Готовая таблица
+            TableStandart: Готовая таблица
         """
+        if self._tables.lowResults is not None:
+            return self._tables.lowResults
+        
         all_students_count, only_last_res = self._getASC(
             dop_filters=[TestSchemes.subject_id == self.subject_id],
             year_count=1,
@@ -802,5 +954,8 @@ class RequestsForSecondSection(RequestsForSections):
                     result.data[-1][i] = float(d[i])
                 else:
                     result.data[-1][0] += d[i]
+        result.table_name = "Перечень ОО, продемонстрировавших низкие результаты ЕГЭ по предмету"
+        
+        self._tables.lowResults = result
         
         return result
