@@ -41,6 +41,14 @@ class QdrantDeleteReportResponse(BaseModel):
     success: bool = True
     message: str = ""
 
+class QdrantReportSectionsComparison(BaseModel):
+    """Результат сравнения одной пары секций"""
+    success: bool = True
+    messange: str = ""
+    section_code: str = ""
+    section_title: str = ""
+    cosine_distance: float = 0.0
+
 # Для БД
 class TableStandart(BaseModel):
     table_name: str = ""

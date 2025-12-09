@@ -104,9 +104,7 @@ class RequestsForFirstSection(RequestsForSections):
         tables = [
             self.getTable_count(session),
             self.getTable_sex(session),
-            self.getTable_categories(session),
             self.getTable_schoolKinds(session),
-            self.getTable_areas(session),
         ]
         
         if self.subject_id in (2, 22):

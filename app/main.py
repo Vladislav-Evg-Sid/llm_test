@@ -86,24 +86,48 @@ async def delete_report(report_id: str) -> QdrantDeleteReportResponse:
     qd_manager = QdrantReportsManager()
     return qd_manager.delete_report(report_id)
 
+@app.post("/qdrant/reports/distance")
+async def get_distance(report1_id: str, report2_id: str, section_code: str) -> QdrantReportSectionsComparison:
+    
+    qd_manager = QdrantReportsManager()
+    return qd_manager.compare_single_section_pair(report1_id, report2_id, section_code)
+
 # Запросы в БД !!!ТЕСТОВОЕ!!!
-@app.get("/db/test/query/all")
-async def test_querry(session: AsyncSession = Depends(get_async_session)) -> dict:
-    manager = RequestsForFirstSection(year=2025, exam_type_id=4, subject_id=2, start_date="2024-05-27", end_date="2024-07-04")
-    # result = await manager.getTable_areas(session)
-    # result = await manager.getTable_schoolKinds(session)
-    # result = await manager.getTable_categories(session)
-    # result = await manager.getTable_sex(session)
-    # result = await manager.getTable_count(session)
-    result = await manager.getTable_profBaseMat(session)
-    # manager = RequestsForSecondSection(year=2025, exam_type_id=4, subject_id=2, start_date="2024-05-27", end_date="2024-07-04")
-    # result = await manager.getTable_scoreDictribution(session)
-    # result = await manager.getTable_resultDynamic(session)
-    # result = await manager.getTable_resultByStudCat(session)
-    # result = await manager.getTable_resultBySchoolTypes(session)
-    # result = await manager.getTable_resultBySex(session)
-    # result = await manager.getTable_resultByAreas(session)
-    # result = await manager.getTable_lowResults(session)
+@app.post("/db/test/query/all")
+async def test_querry(section_num: int, table_num, session: AsyncSession = Depends(get_async_session)) -> dict:
+    match section_num:
+        case 1:
+            manager = RequestsForFirstSection(year=2025, exam_type_id=4, subject_id=2, start_date="2024-05-27", end_date="2024-07-04")
+            match table_num:
+                case 1:
+                    result = await manager.getTable_areas(session)
+                case 2:
+                    result = await manager.getTable_schoolKinds(session)
+                case 3:
+                    result = await manager.getTable_categories(session)
+                case 4:
+                    result = await manager.getTable_sex(session)
+                case 5:
+                    result = await manager.getTable_count(session)
+                case 6:
+                    result = await manager.getTable_profBaseMat(session)
+        case 2:
+            manager = RequestsForSecondSection(year=2025, exam_type_id=4, subject_id=2, start_date="2024-05-27", end_date="2024-07-04")
+            match table_num:
+                case 1:
+                    result = await manager.getTable_scoreDictribution(session)
+                case 2:
+                    result = await manager.getTable_resultDynamic(session)
+                case 3:
+                    result = await manager.getTable_resultByStudCat(session)
+                case 4:
+                    result = await manager.getTable_resultBySchoolTypes(session)
+                case 5:
+                    result = await manager.getTable_resultBySex(session)
+                case 6:
+                    result = await manager.getTable_resultByAreas(session)
+                case 7:
+                    result = await manager.getTable_lowResults(session)
     
     return {
         "status": "correct",
