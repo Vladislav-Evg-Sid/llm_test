@@ -8,13 +8,14 @@ from sqlalchemy.sql.expression import ColumnElement
 from decimal import Decimal
 from types import SimpleNamespace
 from abc import ABC, abstractmethod
+from datetime import datetime
 
 from db.models import *
 from py_models import *
 
 
 class RequestsForSections(ABC):
-    def __init__(self, year: int, exam_type_id:int , subject_id: int, start_date: str, end_date: str):
+    def __init__(self, year: int, exam_type_id:int , subject_id: int, start_date: datetime, end_date: datetime):
         """Создаёт наследник класса для дальней работы
         
         Args:
@@ -34,12 +35,12 @@ class RequestsForSections(ABC):
     
     def _calculteProcent(self, part: ColumnElement | InstrumentedAttribute | Column, all: ColumnElement | InstrumentedAttribute | Column, rounding: int = 1) -> ColumnElement:
         """Получаем процент от числа
-
+        
         Args:
             part (ColumnElement | InstrumentedAttribute | Column): Столбец с долей
             all (ColumnElement | InstrumentedAttribute | Column): Столбец со всеми значениями
             rounding (int, optional): Количество знаков после запятой. Defaults to 1.
-
+        
         Returns:
             ColumnElement: Итоговый столбец
         """
@@ -64,7 +65,8 @@ class RequestsForSections(ABC):
             .filter(
                 TestSchemes.exam_year.between(self.year+1-year_count, self.year),
                 TestSchemes.exam_type_id == self.exam_type_id,
-                # ExamResults.exam_date.between(self.start_date, self.end_date)
+                ExamResults.status_id == 6,
+                # ExamResults.exam_date.between(self.start_date, self.end_date),
                 *dop_filters
             )
         ).cte("only_last_res")
@@ -93,6 +95,8 @@ class RequestsForSections(ABC):
 
 class RequestsForFirstSection(RequestsForSections):
     def _addClassTables(self) -> None:
+        """Создаёт коллекцию таблиц
+        """
         self._tables.count = None
         self._tables.sex = None
         self._tables.categories = None
@@ -100,6 +104,14 @@ class RequestsForFirstSection(RequestsForSections):
         self._tables.areas = None
     
     async def getListOfTables(self, session: AsyncSession) -> list[TableStandart]:
+        """Возвращает списко таблиц, требуемыз для генерации промта
+        
+        Args:
+            session (AsyncSession): Сессия
+        
+        Returns:
+            list[TableStandart]: Список таблиц
+        """
         result = []
         tables = [
             self.getTable_count(session),
@@ -413,8 +425,11 @@ class RequestsForFirstSection(RequestsForSections):
             select(
                 func.count(ExamResults.student_id.distinct()).label("stud_count")
             ).join(TestSchemes, ExamResults.schema_id == TestSchemes.id)
-            .filter(TestSchemes.exam_year == self.year)
-            .filter(TestSchemes.exam_type_id == self.exam_type_id)
+            .filter(
+                TestSchemes.exam_year == self.year,
+                TestSchemes.exam_type_id == self.exam_type_id,
+                ExamResults.status_id == 6
+            )
             # .filter(ExamResults.exam_date.between(self.start_date, self.end_date))
         )
         all_students_count = all_students_count_query.first()[0]
@@ -428,9 +443,12 @@ class RequestsForFirstSection(RequestsForSections):
             .join(Students, Students.school_id == Schools.code)
             .join(ExamResults, ExamResults.student_id == Students.id)
             .join(TestSchemes, TestSchemes.id == ExamResults.schema_id)
-            .filter(TestSchemes.exam_year == self.year)
-            .filter(TestSchemes.exam_type_id == self.exam_type_id)
-            .filter(TestSchemes.subject_id == self.subject_id)
+            .filter(
+                TestSchemes.exam_year == self.year,
+                TestSchemes.exam_type_id == self.exam_type_id,
+                TestSchemes.subject_id == self.subject_id,
+                ExamResults.status_id == 6
+            )
             .group_by(Areas.code)
         )
         
@@ -471,7 +489,8 @@ class RequestsForFirstSection(RequestsForSections):
             .filter(
                 TestSchemes.exam_year.between(self.year-3, self.year),
                 TestSchemes.exam_type_id == self.exam_type_id,
-                TestSchemes.subject_id.in_([2, 22])
+                TestSchemes.subject_id.in_([2, 22]),
+                ExamResults.status_id == 6
                 # ExamResults.exam_date.between(self.start_date, self.end_date)
             )
         ).cte("only_last_res")
@@ -518,6 +537,8 @@ class RequestsForFirstSection(RequestsForSections):
 
 class RequestsForSecondSection(RequestsForSections):
     def _addClassTables(self):
+        """Создаёт коллекцию таблиц
+        """
         self._tables.scoreDictribution = None
         self._tables.resultDynamic = None
         self._tables.resultByStudCat = None
@@ -528,6 +549,14 @@ class RequestsForSecondSection(RequestsForSections):
         self._tables.lowResults = None
     
     async def getListOfTables(self, session: AsyncSession) -> list[TableStandart]:
+        """Возвращает списко таблиц, требуемыз для генерации промта
+        
+        Args:
+            session (AsyncSession): Сессия
+        
+        Returns:
+            list[TableStandart]: Список таблиц
+        """
         result = []
         tables = [
             self.getTable_scoreDictribution(session),
