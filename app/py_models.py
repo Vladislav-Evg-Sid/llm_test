@@ -42,7 +42,6 @@ class QdrantDeleteReportResponse(BaseModel):
     message: str = ""
 
 class QdrantReportSectionsComparison(BaseModel):
-    """Результат сравнения одной пары секций"""
     success: bool = True
     messange: str = ""
     section_code: str = ""
@@ -55,3 +54,9 @@ class TableStandart(BaseModel):
     column_names: list[str] = []
     str_names: list[str] = []
     data: list[list[int | float]] = []
+
+# Промт
+class GenerateData(BaseModel):
+    promt: str = ""
+    obligatury_text: list[str] = []
+    template: list[str] = []

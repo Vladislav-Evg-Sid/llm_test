@@ -4,12 +4,13 @@ from dotenv import load_dotenv
 import os
 import asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
+from datetime import datetime
 
 from qdrant_manager import QdrantReportsManager
 from py_models import *
 from db.requests import *
 from db.connect_db import get_async_session
-from promt import generate_promt
+from promt import getReportGenerateData
 
 env_path = Path(__file__).resolve().parents[0] / ".env"
 load_dotenv(dotenv_path=env_path)
@@ -94,10 +95,10 @@ async def get_distance(report1_id: str, report2_id: str, section_code: str) -> Q
 
 # Запросы в БД !!!ТЕСТОВОЕ!!!
 @app.post("/db/test/query/all")
-async def test_querry(section_num: int, table_num, session: AsyncSession = Depends(get_async_session)) -> dict:
+async def test_querry(section_num: int, table_num: int, session: AsyncSession = Depends(get_async_session)) -> dict:
     match section_num:
         case 1:
-            manager = RequestsForFirstSection(year=2025, exam_type_id=4, subject_id=2, start_date="2024-05-27", end_date="2024-07-04")
+            manager = RequestsForFirstSection(year=2025, exam_type_id=4, subject_id=2, start_date=datetime(2025, 5, 27), end_date=datetime(2025, 7, 4))
             match table_num:
                 case 1:
                     result = await manager.getTable_areas(session)
@@ -138,11 +139,11 @@ async def test_querry(section_num: int, table_num, session: AsyncSession = Depen
 @app.get("/report/generate/section/one")
 async def generate_section_one(session: AsyncSession = Depends(get_async_session)):
     
-    promt = await generate_promt(session=session, section_number=1)
+    data = await getReportGenerateData(session=session, section_number=1)
     
     print('*'*100)
     with open ('promt.txt', 'w') as f:
-        f.write(promt)
+        f.write(data.promt)
     print('='*100)
     
     # Генерируем ответ
@@ -154,12 +155,18 @@ async def generate_section_one(session: AsyncSession = Depends(get_async_session
         # Запускаем генерацию в отдельном потоке
         response = await asyncio.get_event_loop().run_in_executor(
             None,
-            lambda: llm.generate_response(promt)
+            lambda: llm.generate_response(data.promt)
         )
-        result.text = response["response"]
+        llm_text = response["response"]
         result.time = response["time"]
     except Exception as e:
         result.text = f"Ошибка генерации: {str(e)}"
+    
+    for part in data.template:
+        if "obligatury_text-" in part:
+            result.text += "\n" + data.obligatury_text[int(part.replace("obligatury_text-", ""))] 
+        elif part == "llm_text":
+            result.text += "\n" + llm_text
     
     return result
 
@@ -167,11 +174,11 @@ async def generate_section_one(session: AsyncSession = Depends(get_async_session
 @app.get("/report/generate/section/two")
 async def generate_section_one(session: AsyncSession = Depends(get_async_session)):
     
-    promt = await generate_promt(session=session, section_number=2)
+    data = await getReportGenerateData(session=session, section_number=2)
     
     print('*'*100)
     with open ('promt.txt', 'w') as f:
-        f.write(promt)
+        f.write(data.promt)
     print('='*100)
     
     # Генерируем ответ
@@ -183,11 +190,17 @@ async def generate_section_one(session: AsyncSession = Depends(get_async_session
         # Запускаем генерацию в отдельном потоке
         response = await asyncio.get_event_loop().run_in_executor(
             None,
-            lambda: llm.generate_response(promt)
+            lambda: llm.generate_response(data.promt)
         )
-        result.text = response["response"]
+        llm_text = response["response"]
         result.time = response["time"]
     except Exception as e:
         result.text = f"Ошибка генерации: {str(e)}"
+    
+    for part in data.template:
+        if "obligatury_text-" in part:
+            result.text += "\n" + data.obligatury_text[int(part.replace("obligatury_text-", ""))] 
+        elif part == "llm_text":
+            result.text += "\n" + llm_text
     
     return result

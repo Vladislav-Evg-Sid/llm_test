@@ -64,10 +64,25 @@ def getExampleTextForPromt(subject_code: int, year: int, section: int) -> str:
 входных условий вызывает колоссальное непонимание задачи."""
 
 
+async def getObligaturyText(section_number: int, year: int, subject_name: str, table: TableStandart):
+    print(table)
+    match section_number:
+        case 1:
+            return ""
+        
+        case 2: return f"""По результатам выполнения заданий ЕГЭ {year} года по предмету {subject_name} имеет место изменение следующих
+показателей (см. Таблицу 2-6):
+- среднего балла («+6,6» с 2022 годом, «+7,2» с 2023 годом);
+- участников, получивших баллы ниже минимальных («-4,3%» с 2022 годом и «-2,8%» с 2023 годом);
+- участников, получивших баллы от 61 до 80 («-2,6%» с 2022 годом и «-0,9%» с 2023 годом);
+- участников, получивших баллы от 81 до 100 («+11,3%» с 2022 годом и «+11,5%» с 2023 годом)."""
+            
+
+
 async def getTablesBySection(
         session: AsyncSession,
         section_number: int
-    ) -> list[TableStandart]:
+    ) -> tuple[list[TableStandart], RequestsForSections]:
     match section_number:
         case 1:
             manager = RequestsForFirstSection(year=2025, exam_type_id=4, subject_id=2, start_date="2024-05-27", end_date="2024-07-04")
@@ -75,11 +90,11 @@ async def getTablesBySection(
             manager = RequestsForSecondSection(year=2025, exam_type_id=4, subject_id=2, start_date="2024-05-27", end_date="2024-07-04")
     
     tables = await manager.getListOfTables(session=session)
-    return tables
+    return tables, manager
 
 
-async def generate_promt(session: AsyncSession, section_number: int) -> str:
-    tables = await getTablesBySection(session=session, section_number=section_number)
+async def getPromt(session: AsyncSession, section_number: int) -> tuple[str, RequestsForSections]:
+    tables, manager = await getTablesBySection(session=session, section_number=section_number)
     
     promt = f"""Действуй как председатель предметной комиссии по учебной дисциплине "Математика профильная".
 Твоя задача - составить раздел для отчёта, называющийся "{getSectionName(section=section_number)}".
@@ -111,4 +126,20 @@ async def generate_promt(session: AsyncSession, section_number: int) -> str:
 Председатель предметной комиссии: 
 """
     
-    return promt
+    return promt, manager
+
+async def getReportGenerateData(session: AsyncSession, section_number: int) -> GenerateData:
+    result = GenerateData()
+    result.promt, manager = getPromt(session=session, section_number=section_number)
+    
+    match section_number:
+        case 1:
+            result.template = ["llm_text"]
+        
+        case 2:
+            table = await manager.getTable_resultDynamic(session)
+            result.template = ["obligatury_text-0", "llm_text"]
+            result.obligatury_text = await getObligaturyText(section_number=section_number, year=2025, subject_name="Математика профильная", table=table)
+            result.promt += "\n" + result.obligatury_text
+    
+    return result
