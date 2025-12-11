@@ -342,7 +342,6 @@ class QdrantReportsManager:
         Returns:
             QdrantReportSectionsComparison: Результат сравнения с косинусным расстоянием
         """
-        print('*'*100, 1)
         # 1. Проверка наличия отчётов в базе
         report1 = self.get_report(report1_id)
         if not report1:
@@ -360,12 +359,9 @@ class QdrantReportsManager:
                 section_code=section_code
             )
         
-        print('*'*100, 2)
         # 2. Проверка наличия секций в отчётах
-        print('*'*100, 2.1)
         report1_sections = report1["payload"].get("sections", [])
         report2_sections = report2["payload"].get("sections", [])
-        print('*'*100, 2.2)
         
         # Находим нужную секцию в первом отчёте
         section1 = None
@@ -373,7 +369,6 @@ class QdrantReportsManager:
             if sec.get("code") == section_code:
                 section1 = sec
                 break
-        print('*'*100, 2.3, section1)
         
         if not section1:
             print('error')
@@ -383,7 +378,6 @@ class QdrantReportsManager:
                 message=f"Секция с кодом '{section_code}' не найдена в отчёте 1 ({report1_id})",
                 section_code=section_code
             )
-        print('*'*100, 2.4)
         
         # Находим нужную секцию во втором отчёте
         section2 = None
@@ -391,7 +385,6 @@ class QdrantReportsManager:
             if sec.get("code") == section_code:
                 section2 = sec
                 break
-        print('*'*100, 2.5)
         
         if not section2:
             return QdrantReportSectionsComparison(
@@ -399,9 +392,7 @@ class QdrantReportsManager:
                 message=f"Секция с кодом '{section_code}' не найдена в отчёте 2 ({report2_id})",
                 section_code=section_code
             )
-        print('*'*100, 2.6)
         
-        print('*'*100, 3)
         # 3. Проверка наличия векторов у секций
         vector1 = section1.get("vector", [])
         vector2 = section2.get("vector", [])
@@ -422,7 +413,6 @@ class QdrantReportsManager:
                 section_title=section2.get("title", section_code)
             )
         
-        print('*'*100, 4)
         # 4. Вычисление косинусного расстояния
         # Косинусное расстояние = 1 - косинусная схожесть
         # Косинусная схожесть = (A·B) / (||A|| * ||B||)
