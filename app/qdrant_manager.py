@@ -330,6 +330,133 @@ class QdrantReportsManager:
                 message=f"Ошибка при удалении отчёта: {str(e)}"
             )
     
+    def compare_single_section_pair(self, report1_id: str, report2_id: str, section_code: str) -> QdrantReportSectionsComparison:
+        """
+        Сравнивает одну пару секций (с одинаковым кодом) в двух отчётах.
+        
+        Args:
+            report1_id: UUID первого отчёта
+            report2_id: UUID второго отчёта  
+            section_code: Код секции для сравнения (должен быть в обоих отчётах)
+            
+        Returns:
+            QdrantReportSectionsComparison: Результат сравнения с косинусным расстоянием
+        """
+        print('*'*100, 1)
+        # 1. Проверка наличия отчётов в базе
+        report1 = self.get_report(report1_id)
+        if not report1:
+            return QdrantReportSectionsComparison(
+                success=False,
+                message=f"Отчёт 1 с ID {report1_id} не найден",
+                section_code=section_code
+            )
+        
+        report2 = self.get_report(report2_id)
+        if not report2:
+            return QdrantReportSectionsComparison(
+                success=False,
+                message=f"Отчёт 2 с ID {report2_id} не найден",
+                section_code=section_code
+            )
+        
+        print('*'*100, 2)
+        # 2. Проверка наличия секций в отчётах
+        print('*'*100, 2.1)
+        report1_sections = report1["payload"].get("sections", [])
+        report2_sections = report2["payload"].get("sections", [])
+        print('*'*100, 2.2)
+        
+        # Находим нужную секцию в первом отчёте
+        section1 = None
+        for sec in report1_sections:
+            if sec.get("code") == section_code:
+                section1 = sec
+                break
+        print('*'*100, 2.3, section1)
+        
+        if not section1:
+            print('error')
+            print("Секция с кодом '{section_code}' не найдена в отчёте 1 ({report1_id})")
+            return QdrantReportSectionsComparison(
+                success=False,
+                message=f"Секция с кодом '{section_code}' не найдена в отчёте 1 ({report1_id})",
+                section_code=section_code
+            )
+        print('*'*100, 2.4)
+        
+        # Находим нужную секцию во втором отчёте
+        section2 = None
+        for sec in report2_sections:
+            if sec.get("code") == section_code:
+                section2 = sec
+                break
+        print('*'*100, 2.5)
+        
+        if not section2:
+            return QdrantReportSectionsComparison(
+                success=False,
+                message=f"Секция с кодом '{section_code}' не найдена в отчёте 2 ({report2_id})",
+                section_code=section_code
+            )
+        print('*'*100, 2.6)
+        
+        print('*'*100, 3)
+        # 3. Проверка наличия векторов у секций
+        vector1 = section1.get("vector", [])
+        vector2 = section2.get("vector", [])
+        
+        if not vector1:
+            return QdrantReportSectionsComparison(
+                success=False,
+                message=f"У секции '{section_code}' в отчёте 1 отсутствует вектор",
+                section_code=section_code,
+                section_title=section1.get("title", section_code)
+            )
+        
+        if not vector2:
+            return QdrantReportSectionsComparison(
+                success=False,
+                message=f"У секции '{section_code}' в отчёте 2 отсутствует вектор",
+                section_code=section_code,
+                section_title=section2.get("title", section_code)
+            )
+        
+        print('*'*100, 4)
+        # 4. Вычисление косинусного расстояния
+        # Косинусное расстояние = 1 - косинусная схожесть
+        # Косинусная схожесть = (A·B) / (||A|| * ||B||)
+        
+        vec1_np = np.array(vector1)
+        vec2_np = np.array(vector2)
+        
+        # Вычисляем нормы векторов
+        norm1 = np.linalg.norm(vec1_np)
+        norm2 = np.linalg.norm(vec2_np)
+        
+        if norm1 == 0 or norm2 == 0:
+            return QdrantReportSectionsComparison(
+                success=False,
+                message="Один из векторов имеет нулевую длину",
+                section_code=section_code,
+                section_title=section1.get("title", section_code)
+            )
+        
+        # Вычисляем косинусную схожесть
+        cosine_similarity = np.dot(vec1_np, vec2_np) / (norm1 * norm2)
+        
+        # Преобразуем в расстояние: 1 - similarity
+        # Диапазон: 0 (идентичные) - 2 (противоположные)
+        cosine_distance = 1.0 - cosine_similarity
+        
+        return QdrantReportSectionsComparison(
+            success=True,
+            message=f"Секция '{section_code}' успешно сравнена",
+            section_code=section_code,
+            section_title=section1.get("title", section_code),
+            cosine_distance=cosine_similarity
+        )
+    
     def get_report_by_parametrs(self, super_subject_id: int, year: int): # TODO Тоже должен возвращать модель
         try:
             points = self.client.retrieve(
