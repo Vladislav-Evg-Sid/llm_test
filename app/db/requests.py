@@ -167,6 +167,7 @@ class RequestsForFirstSection(RequestsForSections):
         
         result = TableStandart(
             column_names=[
+                "",
                 f"{self.year-2} г. | чел.",
                 f"{self.year-2} г. | % от общего числа участников",
                 f"{self.year-1} г. | чел.",
@@ -174,6 +175,7 @@ class RequestsForFirstSection(RequestsForSections):
                 f"{self.year} г. | чел.",
                 f"{self.year} г. | % от общего числа участников",
             ],
+            str_names=[""],
             data=[[0]*6]
         )
         

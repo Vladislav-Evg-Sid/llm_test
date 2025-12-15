@@ -136,45 +136,9 @@ async def test_querry(section_num: int, table_num: int, session: AsyncSession = 
     }
 
 # Формирование первого раздела
-@app.get("/report/generate/section/one")
-async def generate_section_one(session: AsyncSession = Depends(get_async_session)):
-    
-    data = await getReportGenerateData(session=session, section_number=1)
-    
-    print('*'*100)
-    with open ('promt.txt', 'w') as f:
-        f.write(data.promt)
-    print('='*100)
-    
-    # Генерируем ответ
-    result = LLMResponse()
-    try:
-        # Используем синглтон - всегда получаем тот же экземпляр
-        llm = LLMReportGenerator()
-        
-        # Запускаем генерацию в отдельном потоке
-        response = await asyncio.get_event_loop().run_in_executor(
-            None,
-            lambda: llm.generate_response(data.promt)
-        )
-        llm_text = response["response"]
-        result.time = response["time"]
-    except Exception as e:
-        result.text = f"Ошибка генерации: {str(e)}"
-    
-    for part in data.template:
-        if "obligatury_text-" in part:
-            result.text += "\n" + data.obligatury_text[int(part.replace("obligatury_text-", ""))] 
-        elif part == "llm_text":
-            result.text += "\n" + llm_text
-    
-    return result
-
-# Формирование второго раздела
-@app.get("/report/generate/section/two")
-async def generate_section_one(session: AsyncSession = Depends(get_async_session)):
-    
-    data = await getReportGenerateData(session=session, section_number=2)
+@app.post("/report/generate/section")
+async def generate_sections(section_code: str = "1.7.", session: AsyncSession = Depends(get_async_session)):
+    data = await getReportGenerateData(session=session, section_code=section_code, exam_year=2025)
     
     print('*'*100)
     with open ('promt.txt', 'w') as f:
