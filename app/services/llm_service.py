@@ -2,16 +2,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import asyncio
 import os
 
-from app.schemas.text_reports import LLMResponse
-from app.services.promt import get_report_generate_data
+from app.schemas.text_reports import LLMResponse, LLMRequest
+from app.services import promt as promtService
 
 if os.getenv('CURRENT_DEVICE') == "server":
     from app.services.llm import LLMService
 else:
     from app.services.llm_plug import LLMService
 
-async def get_generated_text_on_subject_by_section(session: AsyncSession, section_code: str) -> LLMResponse:
-    data = await get_report_generate_data(session=session, section_code=section_code, exam_year=2025)
+async def get_generated_text_on_subject_by_section(session: AsyncSession, request: LLMRequest, section_code: str) -> LLMResponse:
+    data = await promtService.get_report_generate_data(session=session, request=request, section_code=section_code)
     
     with open ('promt.txt', 'w') as f:
         f.write(data.promt)
