@@ -3,7 +3,7 @@ from pydantic import BaseModel
 
 class LLMResponse(BaseModel):
     text: str = ""
-    time: int = 0
+    time: float = 0
 
 
 class TableStandart(BaseModel):

@@ -50,6 +50,7 @@ async def generate_sections(section_code: str = "1.7.", session: AsyncSession = 
         print('='*100)
     except Exception as e:
         result.text = f"Ошибка генерации: {str(e)}"
+        llm_text = ""
     
     for part in data.template:
         if result.text != "":

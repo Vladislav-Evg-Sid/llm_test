@@ -91,5 +91,8 @@ class LLMService:
             )
             
         except Exception as e:
-            return f"⚠️ Ошибка при генерации: {str(e)}"
+            return LLMResponse(
+                text=f"⚠️ Ошибка при генерации: {str(e)}",
+                time=0
+            )
     
