@@ -1,33 +1,10 @@
 from huggingface_hub import snapshot_download
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
-from pathlib import Path
 from time import time as time_now
 
 from app.schemas.text_reports import LLMResponse
-
-
-def checkFolder(folder_path: str) -> bool:
-    """Проверяет наличие папки и то, что она не пуста
-
-    Args:
-        path (str): Путь к папке
-
-    Returns:
-        bool: Вердикт
-    """
-    path = Path(folder_path)
-    if not path.exists():
-        return False
-    
-    if not path.is_dir():
-        return False
-    
-    try:
-        next(path.iterdir())
-        return True
-    except:
-        return False
+from app.utils.models_ml.local_dir import checkFolder
 
 
 class LLMService:
@@ -45,17 +22,17 @@ class LLMService:
             
         print(f"⏳ Загружаем модель {model_name}...")
         print("📥 Это может занять несколько минут...")
-        model_name = model_name.replace('/', '_')
-        if not checkFolder(model_name):
+        path_to_model = "app/models_ml/"
+        if not checkFolder(path_to_model + model_name.replace('/', '_')):
             # Скачиваем модель через mirror, если нет локальной папки
             local_dir = snapshot_download(
                 repo_id=model_name,
-                local_dir=f"./models/{model_name}",
-                endpoint="https://hf-mirror.com"
+                local_dir=path_to_model + model_name.replace('/', '_'),
+                # endpoint="https://hf-mirror.com"
             )
         else:
             print("Модель уже скачана, загружаем из локальной папки")
-            local_dir = model_name
+            local_dir = path_to_model + model_name.replace('/', '_')
         
         # Загружаем токенизатор из локальной директории
         self.tokenizer = AutoTokenizer.from_pretrained(

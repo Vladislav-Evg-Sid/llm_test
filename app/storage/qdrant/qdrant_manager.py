@@ -10,6 +10,7 @@ import uuid
 import numpy as np
 
 from app.schemas.qdrant import QdrantCollectionResponse, QdrantAddReportRequest, QdrantAddReportResponse, QdrantAllReportsResponse, QdrantDeleteReportResponse, QdrantTitleReport, QdrantReportSectionsComparisonResponce
+from app.utils.models_ml.local_dir import checkFolder
 
 class QdrantReportsStorage:
     """
@@ -51,15 +52,20 @@ class QdrantReportsStorage:
             prefer_grpc=False
         )
         self.collection_name = "reports"
+        path_to_model = "app/models_ml/"
         print("Installing vectorization model...")
         match self.vect_model_name:
             case 'bge-m3':
-                local_dir = snapshot_download(
-                    repo_id=self.vect_model_name,
-                    local_dir=f"./models/{self.vect_model_name.replace('/', '_')}",
-                    endpoint="https://hf-mirror.com"
-                )
-                print(f"Loading model from: {local_dir}")
+                if not checkFolder(path_to_model + self.vect_model_name.replace('/', '_')):
+                    # Скачиваем модель через mirror, если нет локальной папки
+                    local_dir = snapshot_download(
+                        repo_id=self.vect_model_name,
+                        local_dir=path_to_model+self.vect_model_name.replace('/', '_'),
+                        # endpoint="https://hf-mirror.com"
+                    )
+                else:
+                    print("Модель уже скачана, загружаем из локальной папки")
+                    local_dir = path_to_model + self.vect_model_name.replace('/', '_')
                 self.model = SentenceTransformer(local_dir, device='cpu')
                 self.vector_size = 1024
                 self.tokenizer = None
