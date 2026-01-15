@@ -4,7 +4,7 @@ import torch
 from time import time as time_now
 
 from app.schemas.text_reports import LLMResponse
-from app.utils.models_ml.local_dir import checkFolder
+from app.utils.models_ml.local_dir import check_folder
 
 
 class LLMService:
@@ -23,7 +23,7 @@ class LLMService:
         print(f"⏳ Загружаем модель {model_name}...")
         print("📥 Это может занять несколько минут...")
         path_to_model = "app/models_ml/"
-        if not checkFolder(path_to_model + model_name.replace('/', '_')):
+        if not check_folder(path_to_model + model_name.replace('/', '_')):
             # Скачиваем модель через mirror, если нет локальной папки
             local_dir = snapshot_download(
                 repo_id=model_name,

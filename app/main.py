@@ -23,8 +23,7 @@ async def startup_event():
         return QdrantReportsStorage()
     
     print("🔄 Запуск приложения...")
-    llm = await LLM_init()
+    await LLM_init()
     if os.getenv('CURRENT_DEVICE') == "server":
-        qdrantClient = await qdrant_client_init()
-        qdrantClient.init_collection()
+        await qdrant_client_init()
     print("✅ Приложение готово к работе")

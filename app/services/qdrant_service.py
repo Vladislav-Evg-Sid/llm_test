@@ -1,3 +1,5 @@
+from typing import AsyncGenerator
+
 from app.schemas.qdrant import QdrantAddReportResponse, QdrantAddReportRequest, QdrantAllReportsResponse, QdrantDeleteReportResponse, QdrantReportSectionsComparisonResponce
 from app.storage.qdrant.qdrant_manager import QdrantReportsStorage
 
@@ -22,4 +24,9 @@ class QdrantReportsService:
         return self.storage.delete_report(report_id)
 
     async def get_distance(self, report1_id: str, report2_id: str, section_code: str) -> QdrantReportSectionsComparisonResponce:
+        """Получение векторного расстояния между разделами отчётов"""
         return self.storage.compare_single_section_pair(report1_id, report2_id, section_code)
+
+
+async def get_qdrant_report_service() -> AsyncGenerator[QdrantReportsService]:
+    yield QdrantReportsService()

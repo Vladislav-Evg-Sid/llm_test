@@ -10,7 +10,7 @@ import uuid
 import numpy as np
 
 from app.schemas.qdrant import QdrantCollectionResponse, QdrantAddReportRequest, QdrantAddReportResponse, QdrantAllReportsResponse, QdrantDeleteReportResponse, QdrantTitleReport, QdrantReportSectionsComparisonResponce
-from app.utils.models_ml.local_dir import checkFolder
+from app.utils.models_ml.local_dir import check_folder
 
 class QdrantReportsStorage:
     """
@@ -27,7 +27,6 @@ class QdrantReportsStorage:
         """
         if cls._instance is None:
             cls._instance = super().__new__(cls)
-        print(type(cls._instance))
         return cls._instance
     
     def __init__(self):
@@ -38,8 +37,6 @@ class QdrantReportsStorage:
         """
         if self._initialized:
             return
-        env_path = Path(__file__).resolve().parents[0] / ".env"
-        load_dotenv(dotenv_path=env_path)
         self.host = os.getenv('QDRANT_HOST')
         self.http_port = int(os.getenv('QDRANT_PORT_HTTP'))
         self.grpc_port = int(os.getenv('QDRANT_PORT_GRPC'))
@@ -56,24 +53,22 @@ class QdrantReportsStorage:
         print("Installing vectorization model...")
         match self.vect_model_name:
             case 'bge-m3':
-                if not checkFolder(path_to_model + self.vect_model_name.replace('/', '_')):
-                    # Скачиваем модель через mirror, если нет локальной папки
+                if not check_folder(path_to_model + self.vect_model_name.replace('/', '_')):
                     local_dir = snapshot_download(
                         repo_id=self.vect_model_name,
                         local_dir=path_to_model+self.vect_model_name.replace('/', '_'),
-                        # endpoint="https://hf-mirror.com"
                     )
                 else:
-                    print("Модель уже скачана, загружаем из локальной папки")
                     local_dir = path_to_model + self.vect_model_name.replace('/', '_')
                 self.model = SentenceTransformer(local_dir, device='cpu')
                 self.vector_size = 1024
                 self.tokenizer = None
                 self.chunk_size = None
+        self.__init_collection()
         print("Installing completed")
         self._initialized = True
     
-    def init_collection(self) -> QdrantCollectionResponse:
+    def __init_collection(self) -> QdrantCollectionResponse:
         """Создание коллекции для хранения отчёта
         
         Returns:
@@ -119,7 +114,7 @@ class QdrantReportsStorage:
                     messange="Error when creating a collection: " + str(e)
                 )
     
-    def _chunk_split(self, text: str) -> list[str]:
+    def __chunk_split(self, text: str) -> list[str]:
         """Делит текст на чанки, если это необходимо
         
         Args:
@@ -144,7 +139,7 @@ class QdrantReportsStorage:
         
         return chunks
     
-    def _get_document_embedding(self, text: str) -> list[float]:
+    def __get_document_embedding(self, text: str) -> list[float]:
         """Возвращает вектор текста
         Использует разбиение по чанкам, если текст больше возможной длинны
         
@@ -154,7 +149,7 @@ class QdrantReportsStorage:
         Returns:
             list[float]: Вектор
         """
-        chunks = self._chunk_split(text)
+        chunks = self.__chunk_split(text)
         if len(chunks) == 1:
             return self.model.encode(chunks[0]).tolist()
         
@@ -179,10 +174,10 @@ class QdrantReportsStorage:
         try:
             report_id = str(uuid.uuid4())
             
-            ## Векторизация каждого раздела
+            # Векторизация каждого раздела
             sections = []
             for section in report_data.sections:
-                section_vector = self._get_document_embedding(section.text)
+                section_vector = self.__get_document_embedding(section.text)
                 sections.append({
                     "code": section.code,
                     "text": section.text,
@@ -191,7 +186,7 @@ class QdrantReportsStorage:
             
             # Аггрегация разделов в вектор отчёта
             full_text = "\n".join([sec.text for sec in report_data.sections])
-            report_vector = self._get_document_embedding(full_text)
+            report_vector = self.__get_document_embedding(full_text)
             
             # Сохранение в Qdrant
             self.client.upsert(
