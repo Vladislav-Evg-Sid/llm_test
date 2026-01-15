@@ -1,21 +1,17 @@
 from huggingface_hub import snapshot_download
-from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
-import torch
 
 import os
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
-from qdrant_client.http.models import Filter, FieldCondition, MatchValue
 from sentence_transformers import SentenceTransformer
-from typing import List, Dict, Optional, Any
 from pathlib import Path
 from dotenv import load_dotenv
 import uuid
 import numpy as np
 
-from py_models import *
+from app.schemas.qdrant import QdrantCollectionResponse, QdrantAddReportRequest, QdrantAddReportResponse, QdrantAllReportsResponse, QdrantDeleteReportResponse, QdrantTitleReport, QdrantReportSectionsComparisonResponce
 
-class QdrantReportsManager:
+class QdrantReportsStorage:
     """
     Класс для реализации взаимодействия с БД Qdrant
     """
@@ -244,7 +240,7 @@ class QdrantReportsManager:
                 # Добавляем точки в результат
                 for point in points:
                     reports.append(
-                        QdrantReportTitle(
+                        QdrantTitleReport(
                             id=point.id,
                             title=point.payload.get("title", "Без названия")
                         )
@@ -261,7 +257,7 @@ class QdrantReportsManager:
             print(f"❌ Ошибка при получении списка отчётов: {e}")
             return QdrantAllReportsResponse(reports=[])
     
-    def get_report(self, report_id: str) -> Optional[Dict]:
+    def get_report(self, report_id: str) -> dict[str, any] | None:
         """Возвращает отчёт по id
         
         Args:
@@ -330,7 +326,7 @@ class QdrantReportsManager:
                 message=f"Ошибка при удалении отчёта: {str(e)}"
             )
     
-    def compare_single_section_pair(self, report1_id: str, report2_id: str, section_code: str) -> QdrantReportSectionsComparison:
+    def compare_single_section_pair(self, report1_id: str, report2_id: str, section_code: str) -> QdrantReportSectionsComparisonResponce:
         """
         Сравнивает одну пару секций (с одинаковым кодом) в двух отчётах.
         
@@ -345,7 +341,7 @@ class QdrantReportsManager:
         # 1. Проверка наличия отчётов в базе
         report1 = self.get_report(report1_id)
         if not report1:
-            return QdrantReportSectionsComparison(
+            return QdrantReportSectionsComparisonResponce(
                 success=False,
                 message=f"Отчёт 1 с ID {report1_id} не найден",
                 section_code=section_code
@@ -353,7 +349,7 @@ class QdrantReportsManager:
         
         report2 = self.get_report(report2_id)
         if not report2:
-            return QdrantReportSectionsComparison(
+            return QdrantReportSectionsComparisonResponce(
                 success=False,
                 message=f"Отчёт 2 с ID {report2_id} не найден",
                 section_code=section_code
@@ -373,7 +369,7 @@ class QdrantReportsManager:
         if not section1:
             print('error')
             print("Секция с кодом '{section_code}' не найдена в отчёте 1 ({report1_id})")
-            return QdrantReportSectionsComparison(
+            return QdrantReportSectionsComparisonResponce(
                 success=False,
                 message=f"Секция с кодом '{section_code}' не найдена в отчёте 1 ({report1_id})",
                 section_code=section_code
@@ -387,7 +383,7 @@ class QdrantReportsManager:
                 break
         
         if not section2:
-            return QdrantReportSectionsComparison(
+            return QdrantReportSectionsComparisonResponce(
                 success=False,
                 message=f"Секция с кодом '{section_code}' не найдена в отчёте 2 ({report2_id})",
                 section_code=section_code
@@ -398,7 +394,7 @@ class QdrantReportsManager:
         vector2 = section2.get("vector", [])
         
         if not vector1:
-            return QdrantReportSectionsComparison(
+            return QdrantReportSectionsComparisonResponce(
                 success=False,
                 message=f"У секции '{section_code}' в отчёте 1 отсутствует вектор",
                 section_code=section_code,
@@ -406,7 +402,7 @@ class QdrantReportsManager:
             )
         
         if not vector2:
-            return QdrantReportSectionsComparison(
+            return QdrantReportSectionsComparisonResponce(
                 success=False,
                 message=f"У секции '{section_code}' в отчёте 2 отсутствует вектор",
                 section_code=section_code,
@@ -425,7 +421,7 @@ class QdrantReportsManager:
         norm2 = np.linalg.norm(vec2_np)
         
         if norm1 == 0 or norm2 == 0:
-            return QdrantReportSectionsComparison(
+            return QdrantReportSectionsComparisonResponce(
                 success=False,
                 message="Один из векторов имеет нулевую длину",
                 section_code=section_code,
@@ -439,7 +435,7 @@ class QdrantReportsManager:
         # Диапазон: 0 (идентичные) - 2 (противоположные)
         cosine_distance = 1.0 - cosine_similarity
         
-        return QdrantReportSectionsComparison(
+        return QdrantReportSectionsComparisonResponce(
             success=True,
             message=f"Секция '{section_code}' успешно сравнена",
             section_code=section_code,

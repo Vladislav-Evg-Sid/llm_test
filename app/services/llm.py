@@ -1,8 +1,10 @@
 from huggingface_hub import snapshot_download
-from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
+from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
 from pathlib import Path
 from time import time as time_now
+
+from app.schemas.text_reports import LLMResponse
 
 
 def checkFolder(folder_path: str) -> bool:
@@ -28,7 +30,7 @@ def checkFolder(folder_path: str) -> bool:
         return False
 
 
-class LLMReportGenerator:
+class LLMService:
     _instance = None
     _initialized = False
     
@@ -38,7 +40,7 @@ class LLMReportGenerator:
         return cls._instance
     
     def __init__(self, model_name="Qwen/Qwen3-4B"):
-        if LLMReportGenerator._initialized:
+        if LLMService._initialized:
             return
             
         print(f"⏳ Загружаем модель {model_name}...")
@@ -69,22 +71,19 @@ class LLMReportGenerator:
         self.model = AutoModelForCausalLM.from_pretrained(
             local_dir,
             torch_dtype=torch.float32,
-            device_map="cpu",  # Убираем эту строку
+            device_map="cpu",
             low_cpu_mem_usage=True,
             trust_remote_code=True
         )
-        
-        # Явно перемещаем модель на CPU
-        # self.model = self.model.to('cpu')
         
         # Переводим в режим инференса
         self.model.eval()
         
         self.history = []
         print("✅ Модель успешно загружена и готова к работе!")
-        LLMReportGenerator._initialized = True
+        LLMService._initialized = True
     
-    def generate_response(self, promt):
+    def generate_response(self, promt) -> LLMResponse:
         try:
             start_time = time_now()
             messages = [
@@ -109,10 +108,10 @@ class LLMReportGenerator:
             
             end_time = time_now()
             
-            return {
-                "response": response,
-                "time": end_time - start_time
-            }
+            return LLMResponse(
+                text=response,
+                time=end_time-start_time
+            )
             
         except Exception as e:
             return f"⚠️ Ошибка при генерации: {str(e)}"

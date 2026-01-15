@@ -1,12 +1,5 @@
 from pydantic import BaseModel
 
-
-# Для LLM
-class LLMResponse(BaseModel):
-    text: str = ""
-    time: int = 0
-
-# Для Qdrant
 class QdrantCollectionResponse(BaseModel):
     success: bool = True
     messange: str = ""
@@ -27,12 +20,12 @@ class QdrantAddReportResponse(BaseModel):
     id: str = ""
     messange: str = ""
 
-class QdrantReportTitle(BaseModel):
+class QdrantTitleReport(BaseModel):
     id: str
     title: str
 
 class QdrantAllReportsResponse(BaseModel):
-    reports: list[QdrantReportTitle]
+    reports: list[QdrantTitleReport]
 
 class QdrantDeleteReportRequest(BaseModel):
     report_id: str
@@ -41,22 +34,9 @@ class QdrantDeleteReportResponse(BaseModel):
     success: bool = True
     message: str = ""
 
-class QdrantReportSectionsComparison(BaseModel):
+class QdrantReportSectionsComparisonResponce(BaseModel):
     success: bool = True
     messange: str = ""
     section_code: str = ""
     section_title: str = ""
     cosine_distance: float = 0.0
-
-# Для БД
-class TableStandart(BaseModel):
-    table_name: str = ""
-    column_names: list[str] = []
-    str_names: list[str] = []
-    data: list[list[int | float]] = []
-
-# Промт
-class GenerateData(BaseModel):
-    promt: str = ""
-    obligatury_text: list[str] = []
-    template: list[str] = []

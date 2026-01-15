@@ -1,6 +1,9 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from db.requests import *
-from py_models import *
+
+from app.storage.postgresql.request_for_section_abc import RequestsForSections
+from app.storage.postgresql.request_for_section_one import RequestsForFirstSection
+from app.storage.postgresql.request_for_section_two import RequestsForSecondSection
+from app.schemas.text_reports import *
 
 
 def getSectionName(section_code: str) -> str:
@@ -53,7 +56,7 @@ def getExampleTextForPromt(subject_code: int, year: int, section_code: str) -> s
 Можно подвести небольшой итог. Также хочется отметить, что неизменность структуры ЕГЭ на протяжении достаточно продолжительного промежутка времени играла условно положительную роль, но хотелось бы интересных изменений, ибо такой процесс ориентирует, участников учебного процесса не на получение систематических знаний по математике, а на приобретение навыков решения конкретных заданий, а изменение их условий ведет к резкому ухудшению качества выполнения. Процесс обновления запущенный в прошлом году показал, что половина (в долевом показателе) высокобалльников (группа «81-100») не готова к новшествам и привыкла работать на знакомых алгоритмах и происходит «натаскивание» на определённые алгоритмы и любое, даже самое малейшее, изменение входных условий вызывает колоссальное непонимание задачи."""
 
 
-async def getObligaturyText(section_code: str, year: int, subject_name: str, table: TableStandart):
+async def get_obligatury_text(section_code: str, year: int, subject_name: str, table: TableStandart):
     print('*'*100)
     print(table)
     print('='*100)
@@ -87,7 +90,7 @@ async def getTablesBySection(
     return tables, manager
 
 
-async def getPromt(session: AsyncSession, section_code: int, exam_year: int) -> tuple[str, RequestsForSections]:
+async def get_promt(session: AsyncSession, section_code: int, exam_year: int) -> tuple[str, RequestsForSections]:
     tables, manager = await getTablesBySection(session=session, section_code=section_code, exam_year=exam_year)
     
     promt = f"""Действуй как председатель предметной комиссии по учебной дисциплине "Математика профильная".
@@ -122,9 +125,9 @@ async def getPromt(session: AsyncSession, section_code: int, exam_year: int) -> 
     
     return promt, manager
 
-async def getReportGenerateData(session: AsyncSession, section_code: str, exam_year: int) -> GenerateData:
+async def get_report_generate_data(session: AsyncSession, section_code: str, exam_year: int) -> GenerateData:
     result = GenerateData()
-    result.promt, manager = await getPromt(session=session, section_code=section_code, exam_year=exam_year)
+    result.promt, manager = await get_promt(session=session, section_code=section_code, exam_year=exam_year)
     
     match section_code:
         case "1.7.":
@@ -133,7 +136,7 @@ async def getReportGenerateData(session: AsyncSession, section_code: str, exam_y
         case "2.5.":
             table = await manager.getTable_resultDynamic(session)
             result.template = ["obligatury_text-0", "llm_text"]
-            result.obligatury_text = await getObligaturyText(section_code=section_code, year=exam_year, subject_name="Математика профильная", table=table)
+            result.obligatury_text = await get_obligatury_text(section_code=section_code, year=exam_year, subject_name="Математика профильная", table=table)
             result.promt += "\n" + result.obligatury_text
     
     return result

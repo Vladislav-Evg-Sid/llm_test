@@ -38,16 +38,19 @@ services:
     build:
       context: ./app
       dockerfile: Dockerfile.llm
-    stdin_open: true
-    tty: true
     ports:
       - "8008:8008"
     volumes:
-      - ./app:/app
-      - ./.env:/app/.env
+      - .:/app
       - ./logs:/app/logs
     environment:
       - PYTHONPATH=/app
+      - CURRENT_DEVICE=${CURRENT_DEVICE}
+      - DB_NAME=${DB_NAME}
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_PORT=${DB_PORT}
     # depends_on:
       # db:
         # condition: service_healthy
