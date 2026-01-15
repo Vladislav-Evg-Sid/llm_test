@@ -24,7 +24,7 @@ async def get_all_reports(qd_manager: QdrantReportsService = Depends(get_qdrant_
 @router.get("/qdrant/reports/{report_id}")
 async def get_report_by_id(report_id: str, qd_manager: QdrantReportsService = Depends(get_qdrant_report_service)):
     """Получение полных данных отчёта по ID"""
-    report = await qd_manager.get_report(report_id)
+    report = await qd_manager.get_report_by_id(report_id)
     if report is None:
         raise HTTPException(status_code=404, detail="Отчёт не найден")
     return report
@@ -37,5 +37,5 @@ async def delete_report(report_id: str, qd_manager: QdrantReportsService = Depen
 
 @router.post("/qdrant/reports/distance")
 async def get_distance(report1_id: str, report2_id: str, section_code: str, qd_manager: QdrantReportsService = Depends(get_qdrant_report_service)) -> QdrantReportSectionsComparisonResponce:
-    result = await qd_manager.compare_single_section_pair(report1_id, report2_id, section_code)
+    result = await qd_manager.get_distance(report1_id, report2_id, section_code)
     return result
