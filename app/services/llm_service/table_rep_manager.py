@@ -6,7 +6,7 @@ from app.storage.postgresql.request_for_section_two import RequestsForSecondSect
 from app.schemas.text_reports import TableStandart
 
 
-async def get_table_by_section(session: AsyncSession, section_num: int, table_num: int) -> TableStandart:
+async def get_table_by_section(session: AsyncSession, section_num: int, table_num: int) -> TableStandart:  # TODO: Вводить код предмета и экзамена пользователем
     result = TableStandart(table_name="error", column_names=[], str_names=[], data=[])
     match section_num:
         case 1:
