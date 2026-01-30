@@ -41,4 +41,6 @@ async def get_generated_text_on_subject_by_section(session: AsyncSession, reques
         elif part == "llm_text":
             result.text += llm_text
     
+    with open ('result.txt', 'w') as f:
+        f.write(result.text)
     return result
