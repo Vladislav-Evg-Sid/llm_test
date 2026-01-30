@@ -3,12 +3,12 @@ import asyncio
 import os
 
 from app.schemas.text_reports import LLMResponse, LLMRequest
-from app.services import promt as promtService
+from app.services.llm_service import promt as promtService
 
 if os.getenv('CURRENT_DEVICE') == "server":
-    from app.services.llm import LLMService
+    from app.services.llm_service.llm import LLMService
 else:
-    from app.services.llm_plug import LLMService
+    from app.services.llm_service.llm_plug import LLMService
 
 async def get_generated_text_on_subject_by_section(session: AsyncSession, request: LLMRequest, section_code: str) -> LLMResponse:
     data = await promtService.get_report_generate_data(session=session, request=request, section_code=section_code)

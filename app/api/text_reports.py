@@ -3,8 +3,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.text_reports import TableStandart, LLMResponse, LLMRequest
 from app.db.connect_db import get_async_session
-from app.services import table_rep_manager as tableRepManager
-from app.services import llm_service as llmService
+from app.services.llm_service import table_rep_manager as tableRepManager
+from app.services.llm_service import llm_service as llmService
 
 
 router = APIRouter(
