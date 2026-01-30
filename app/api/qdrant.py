@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 
 from app.schemas.qdrant import QdrantAddReportResponse, QdrantAddReportRequest, QdrantAllReportsResponse, QdrantDeleteReportResponse, QdrantReportSectionsComparisonResponce
-from app.services.qdrant_service import QdrantReportsService, get_qdrant_report_service
+from app.services.qdrant_service.qdrant_service import QdrantReportsService, get_qdrant_report_service
 
 router = APIRouter(
     prefix="/qdrant",
