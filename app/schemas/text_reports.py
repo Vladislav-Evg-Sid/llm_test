@@ -13,11 +13,14 @@ class LLMResponse(BaseModel):
     time: float = 0
 
 
+# class LLMFileResponse(BaseModel):
+    
+
+
 class TableStandart(BaseModel):
     table_name: str = ""
     column_names: list[str] = []
-    str_names: list[str] = []
-    data: list[list[int | float]] = []
+    data: list[list[int | float | str]] = []
 
 
 class GenerateData(BaseModel):

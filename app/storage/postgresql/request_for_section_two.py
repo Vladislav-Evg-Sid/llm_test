@@ -77,8 +77,7 @@ class RequestsForSecondSection(RequestsForSections):
         
         result = TableStandart(column_names=["Балл", "Количество"])
         for data in query.all():
-            result.str_names.append(data[0])
-            result.data.append([data[1]])
+            result.data.append([data[0], data[1]])
         result.table_name = "Диаграмма распределения тестовых баллов участников ЕГЭ по предмету в 2025 г."
         
         self._tables.scoreDictribution = result
@@ -167,18 +166,18 @@ class RequestsForSecondSection(RequestsForSections):
                 f"Год проведения ГИА | {self.year-1} г.",
                 f"Год проведения ГИА | {self.year} г.",
             ],
-            str_names=[
-                "ниже минимального балла, %",
-                "от минимального балла до 60 баллов, %",
-                "от 61 до 80 баллов, %",
-                "от 81 до 100 баллов, %",
-                "Средний тестовый балл",
-            ],
-            data = [[0]*3 for i in range(5)]
+            data = [[""]*4 for i in range(5)]
         )
+        result.data[0] = [
+            "ниже минимального балла, %",
+            "от минимального балла до 60 баллов, %",
+            "от 61 до 80 баллов, %",
+            "от 81 до 100 баллов, %",
+            "Средний тестовый балл",
+        ]
         for i in range(len(data)):
             for j in range(1, len(data[i])):
-                result.data[j-1][i] = float(data[i][j])
+                result.data[j-1][i+1] = float(data[i][j])
         result.table_name = "Динамика результатов ЕГЭ по предмету за последние 3 года"
         
         self._tables.resultDynamic = result
@@ -218,24 +217,24 @@ class RequestsForSecondSection(RequestsForSections):
                 "Доля участников, у которых полученный тестовый балл | от 61 до 80 баллов",
                 "Доля участников, у которых полученный тестовый балл | от 81 до 100 баллов",
             ],
-            str_names=category_names+["Участники экзамена с ОВЗ"],
-            data=[[0]*5, [0]*5, [0]*5, [0]*5]
+            data=[[0]*5 for i in range(5)]
         )
+        result.data[0] = category_names+["Участники экзамена с ОВЗ"]
         for d in data:
             if d[0]:
                 for i in range(2, len(d)):
                     if isinstance(d[i], Decimal):
-                        result.data[-1][i-1] = float(d[i])
+                        result.data[-1][i] = float(d[i])
                     else:
-                        result.data[-1][0] += d[i]
+                        result.data[-1][1] += d[i]
             else:
                 for c in range(len(categories)):
                     if categories[c] == d[1]:
                         for i in range(2, len(d)):
                             if isinstance(d[i], Decimal):
-                                result.data[c][i-1] += float(d[i])
+                                result.data[c][i] += float(d[i])
                             else:
-                                result.data[c][0] += d[i]
+                                result.data[c][1] += d[i]
                         break
         result.table_name = "Результаты ЕГЭ по учебному предмету по группам участников экзамена с различным уровнем подготовки в разрезе категории участника ЕГЭ"
         
@@ -278,13 +277,13 @@ class RequestsForSecondSection(RequestsForSections):
             ]
         )
         for d in data:
-            result.str_names.append(d[0])
-            result.data.append([0]*5)
+            result.data.append([0]*6)
+            result.data[-1][0] = d[0]
             for i in range(1, len(d)):
                 if isinstance(d[i], Decimal):
-                    result.data[-1][i] = float(d[i])
+                    result.data[-1][i+1] = float(d[i])
                 else:
-                    result.data[-1][0] += d[i]
+                    result.data[-1][1] += d[i]
         result.table_name = "Результаты ЕГЭ по учебному предмету по группам участников экзамена с различным уровнем подготовки в разрезе типа ОО"
         
         self._tables.resultBySchoolTypes = result
@@ -327,13 +326,13 @@ class RequestsForSecondSection(RequestsForSections):
             ]
         )
         for d in data:
-            result.str_names.append("женский" if d[0] else "мужской")
-            result.data.append([0]*5)
+            result.data.append([0]*6)
+            result.data[-1][0] = "женский" if d[0] else "мужской"
             for i in range(1, len(d)):
                 if isinstance(d[i], Decimal):
-                    result.data[-1][i] = float(d[i])
+                    result.data[-1][i+1] = float(d[i])
                 else:
-                    result.data[-1][0] += d[i]
+                    result.data[-1][1] += d[i]
         result.table_name = "Результаты ЕГЭ по учебному предмету по группам участников экзамена с различным уровнем подготовки юношей и девушек"
         
         self._tables.resultBySex = result
@@ -380,13 +379,13 @@ class RequestsForSecondSection(RequestsForSections):
             ]
         )
         for d in data:
-            result.str_names.append(d[0])
-            result.data.append([0]*5)
+            result.data.append([0]*6)
+            result.data[-1][0] = d[0]
             for i in range(1, len(d)):
                 if isinstance(d[i], Decimal):
-                    result.data[-1][i] = float(d[i])
+                    result.data[-1][i+1] = float(d[i])
                 else:
-                    result.data[-1][0] += d[i]
+                    result.data[-1][1] += d[i]
         result.table_name = "Результаты ЕГЭ по учебному предмету по группам участников экзамена с различным уровнем подготовки в сравнении по АТЕ"
         
         self._tables.resultByAreas = result
@@ -448,13 +447,13 @@ class RequestsForSecondSection(RequestsForSections):
             ]
         )
         for d in data:
-            result.str_names.append(d[0])
-            result.data.append([0]*5)
+            result.data.append([0]*6)
+            result.data[-1][0] = d[0]
             for i in range(1, len(d)):
                 if isinstance(d[i], Decimal):
-                    result.data[-1][-i] = float(d[i])
+                    result.data[-1][-i+1] = float(d[i])
                 else:
-                    result.data[-1][0] += d[i]
+                    result.data[-1][1] += d[i]
         result.table_name = "Перечень ОО, продемонстрировавших наиболее высокие результаты ЕГЭ по предмету"
         
         self._tables.hightResults = result
@@ -516,13 +515,13 @@ class RequestsForSecondSection(RequestsForSections):
             ]
         )
         for d in data:
-            result.str_names.append(d[0])
-            result.data.append([0]*5)
+            result.data.append([0]*6)
+            result.data[-1][0] = d[0]
             for i in range(1, len(d)):
                 if isinstance(d[i], Decimal):
-                    result.data[-1][i] = float(d[i])
+                    result.data[-1][i+1] = float(d[i])
                 else:
-                    result.data[-1][0] += d[i]
+                    result.data[-1][1] += d[i]
         result.table_name = "Перечень ОО, продемонстрировавших низкие результаты ЕГЭ по предмету"
         
         self._tables.lowResults = result
