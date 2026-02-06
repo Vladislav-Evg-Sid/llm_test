@@ -152,6 +152,14 @@ class RequestsForSecondSection(RequestsForSections):
         if self._tables.resultDynamic is not None:
             return self._tables.resultDynamic
         
+        category_names = [
+            "ниже минимального балла, %",
+            "от минимального балла до 60 баллов, %",
+            "от 61 до 80 баллов, %",
+            "от 81 до 100 баллов, %",
+            "Средний тестовый балл",
+        ]
+        
         data = await self._getTable_scoreRanges(
             session=session,
             group_by=[TestSchemes.exam_year],
@@ -168,15 +176,10 @@ class RequestsForSecondSection(RequestsForSections):
             ],
             data = [[""]*4 for i in range(5)]
         )
-        result.data[0] = [
-            "ниже минимального балла, %",
-            "от минимального балла до 60 баллов, %",
-            "от 61 до 80 баллов, %",
-            "от 81 до 100 баллов, %",
-            "Средний тестовый балл",
-        ]
+        
         for i in range(len(data)):
             for j in range(1, len(data[i])):
+                result.data[j-1][0] = category_names[j-1]
                 result.data[j-1][i+1] = float(data[i][j])
         result.table_name = "Динамика результатов ЕГЭ по предмету за последние 3 года"
         
@@ -197,7 +200,7 @@ class RequestsForSecondSection(RequestsForSections):
             return self._tables.resultByStudCat
         
         categories = [1, 3, 4]
-        category_names = ["ВТГ, обучающихся по программам СОО", "ВТГ, обучающихся по программам СПО", "ВПЛ"]
+        category_names = ["ВТГ, обучающихся по программам СОО", "ВТГ, обучающихся по программам СПО", "ВПЛ", "Участники экзамена с ОВЗ"]
         
         data = await self._getTable_scoreRanges(
             session=session,
@@ -217,9 +220,8 @@ class RequestsForSecondSection(RequestsForSections):
                 "Доля участников, у которых полученный тестовый балл | от 61 до 80 баллов",
                 "Доля участников, у которых полученный тестовый балл | от 81 до 100 баллов",
             ],
-            data=[[0]*5 for i in range(5)]
+            data=[[0]*6 for i in range(5)]
         )
-        result.data[0] = category_names+["Участники экзамена с ОВЗ"]
         for d in data:
             if d[0]:
                 for i in range(2, len(d)):
@@ -232,6 +234,7 @@ class RequestsForSecondSection(RequestsForSections):
                     if categories[c] == d[1]:
                         for i in range(2, len(d)):
                             if isinstance(d[i], Decimal):
+                                print(">>>", len(result.data[c]), i)
                                 result.data[c][i] += float(d[i])
                             else:
                                 result.data[c][1] += d[i]
