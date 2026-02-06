@@ -291,6 +291,7 @@ class RequestsForFirstSection(RequestsForSections):
         data = query.all()
         result = TableStandart(
             column_names=[
+                "№ п/п",
                 "Категория участника",
                 f"{self.year-2} г. | чел.",
                 f"{self.year-2} г. | % от общего числа участников",
@@ -299,9 +300,9 @@ class RequestsForFirstSection(RequestsForSections):
                 f"{self.year} г. | чел.",
                 f"{self.year} г. | % от общего числа участников",
             ],
-            data=[[0]*7 for i in range(len(data)//3)]
+            data=[[0]*8 for i in range(len(data)//3)]
         )
-        ind_x = 1
+        ind_x = 2
         ind_y = -1
         used_categories = set()
         for i in range(len(data)):
@@ -311,9 +312,10 @@ class RequestsForFirstSection(RequestsForSections):
                 ind_x += 2
             else:
                 ind_y += 1
-                ind_x = 1
+                ind_x = 2
                 used_categories.add(data[i][0])
-                result.data[ind_y][0] = data[i][0]
+                result.data[ind_y][0] = f"{ind_y+1}."
+                result.data[ind_y][1] = data[i][0]
                 result.data[ind_y][ind_x] = data[i][2]
                 result.data[ind_y][ind_x+1] = float(data[i][3])
                 ind_x += 2
@@ -368,13 +370,14 @@ class RequestsForFirstSection(RequestsForSections):
         
         result = TableStandart(
             column_names=[
+                "№ п/п",
                 "Наименование АТЕ",
                 "Количество участников ЕГЭ по учебному предмету",
                 "% от общего числа участников в регионе",
             ]
         )
-        for a in query.all():
-            result.data.append([a[0], a[1], float(a[2])])
+        for i, a in enumerate(query.all()):
+            result.data.append([f"{i+1}.", a[0], a[1], float(a[2])])
         result.table_name = "Количество участников ЕГЭ по учебному предмету по АТЕ региона"
         
         self._tables.areas = result
