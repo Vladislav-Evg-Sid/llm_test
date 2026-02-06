@@ -156,7 +156,7 @@ class RequestsForFirstSection(RequestsForSections):
         
         for a in data:
             ind_y = categories.index(a[0])
-            ind_x = (a[1] - self.year - 1) * 2 + 1
+            ind_x = (a[1] - self.year - 1) * 2
             result.data[ind_y][0] = a[0]
             result.data[ind_y][ind_x] = a[2]
             result.data[ind_y][ind_x+1] = float(a[3])
@@ -227,11 +227,12 @@ class RequestsForFirstSection(RequestsForSections):
             ],
             data=[[0]*7 for i in range(3)]
         )
+        for i, cn in enumerate(category_names):
+            result.data[i][0] = cn
         
         for a in data:
             ind_y = categories.index(a[0])
-            ind_x = (a[1] - self.year - 1) * 2 + 1
-            result.data[ind_y][0] = category_names[ind_y]
+            ind_x = (a[1] - self.year - 1) * 2
             result.data[ind_y][ind_x] = a[2]
             result.data[ind_y][ind_x+1] = float(a[3])
         result.table_name = "Количество участников экзамена в регионе по категориям (за 3 года)"
@@ -288,7 +289,6 @@ class RequestsForFirstSection(RequestsForSections):
         
         query = await session.execute(query)
         data = query.all()
-        
         result = TableStandart(
             column_names=[
                 "Категория участника",
@@ -299,20 +299,21 @@ class RequestsForFirstSection(RequestsForSections):
                 f"{self.year} г. | чел.",
                 f"{self.year} г. | % от общего числа участников",
             ],
-            data=[[""]*7 for i in range(len(data)//3)]
+            data=[[0]*7 for i in range(len(data)//3)]
         )
-        result.data[0] = []
         ind_x = 1
         ind_y = -1
+        used_categories = set()
         for i in range(len(data)):
-            if data[i][0] in result.data[0]:
+            if data[i][0] in used_categories:
                 result.data[ind_y][ind_x] = data[i][2]
                 result.data[ind_y][ind_x+1] = float(data[i][3])
                 ind_x += 2
             else:
                 ind_y += 1
                 ind_x = 1
-                result.data[0].append(data[i][0])
+                used_categories.add(data[i][0])
+                result.data[ind_y][0] = data[i][0]
                 result.data[ind_y][ind_x] = data[i][2]
                 result.data[ind_y][ind_x+1] = float(data[i][3])
                 ind_x += 2
