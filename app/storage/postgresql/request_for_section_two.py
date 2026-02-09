@@ -6,7 +6,6 @@ from decimal import Decimal
 from app.models.models import *
 from app.schemas.text_reports import *
 from app.storage.postgresql.request_for_section_abc import RequestsForSections
-from app.utils.debug.print_orm_query import print_SQL_by_ORM
 
 
 class RequestsForSecondSection(RequestsForSections):
@@ -536,7 +535,6 @@ class RequestsForSecondSection(RequestsForSections):
             .order_by(desc("to_order_1"), desc("to_order_2"), desc("to_order_3"), desc("to_order_4"))
             .limit(14)
         )
-        print_SQL_by_ORM(query)
         
         query = await session.execute(query)
         data = query.all()
