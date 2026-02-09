@@ -5,9 +5,9 @@ import io
 
 from app.schemas.text_reports import TableStandart, LLMResponse, LLMRequest
 from app.db.connect_db import get_async_session
-from app.services.llm_service.service import table_rep_manager as tableRepManager
-from app.services.llm_service.service import llm_service as llmService
-from app.services.llm_service.report2docx import get_file_by_data as getFileByData
+from app.services.table_rep_manager import table_rep_manager as tableRepManager
+from app.services.llm_service import llm_service as llmService
+from app.services.report_to_file import get_file_by_data as getFileByData
 
 
 router = APIRouter(

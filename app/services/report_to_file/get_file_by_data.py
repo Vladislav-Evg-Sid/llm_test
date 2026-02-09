@@ -5,8 +5,8 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import parse_xml
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.llm_service.service import table_rep_manager as tableRepManager
-from app.services.llm_service.report2docx.optimize_table_column_weight import optimize_table_column_weight
+from app.services.table_rep_manager import table_rep_manager as tableRepManager
+from app.services.report_to_file.optimize_table_column_weight import optimize_table_column_weight
 from app.schemas.text_reports import TableStandart
 
 
