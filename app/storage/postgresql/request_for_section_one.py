@@ -2,7 +2,7 @@ from sqlalchemy import func, select, and_, case
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.models import *
-from app.schemas.text_reports import *
+from app.schemas.text_reports import TableStandart
 from app.storage.postgresql.request_for_section_abc import RequestsForSections
 
 class RequestsForFirstSection(RequestsForSections):

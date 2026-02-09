@@ -4,7 +4,7 @@ from sqlalchemy.sql.expression import ColumnElement
 from decimal import Decimal
 
 from app.models.models import *
-from app.schemas.text_reports import *
+from app.schemas.text_reports import TableStandart
 from app.storage.postgresql.request_for_section_abc import RequestsForSections
 
 

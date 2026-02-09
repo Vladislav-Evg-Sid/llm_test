@@ -7,11 +7,11 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 
 from app.models.models import *
-from app.schemas.text_reports import *
+from app.schemas.text_reports import TableStandart
 
 
 class RequestsForSections(ABC):
-    def __init__(self, year: int, exam_type_id:int , subject_id: int, start_date: datetime, end_date: datetime):
+    def __init__(self, year: int, exam_type_id:int , subject_id: int):
         """Создаёт наследник класса для дальней работы
         
         Args:
@@ -24,8 +24,6 @@ class RequestsForSections(ABC):
         self.year = year
         self.exam_type_id = exam_type_id
         self.subject_id = subject_id
-        self.start_date = start_date
-        self.end_date = end_date
         self._tables = SimpleNamespace()
         self._addClassTables()
     
