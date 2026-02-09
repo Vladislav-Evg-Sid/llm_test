@@ -78,13 +78,13 @@ def add_table(doc: Document, table: TableStandart, section_name: str, table_name
     add_table_body(word_table, table.data, header_len)
 
 
-async def get_docx_file(session: AsyncSession, section_num: int):
+async def get_docx_file(session: AsyncSession, section_num: int, exam_year: int, exam_type_id:int, subject_id: int):
     doc = initDocument()
     
     table_ind = 0
     while True:
         table_ind += 1
-        table = await tableRepManager.get_table_by_section(session, section_num, table_ind)
+        table = await tableRepManager.get_table_by_section(session, section_num, table_ind, year=exam_year, exam_type_id=exam_type_id, subject_id=subject_id)
         if table.table_name == "Not found section or table":
             break
         

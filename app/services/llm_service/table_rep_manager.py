@@ -1,16 +1,16 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import datetime
 
 from app.storage.postgresql.request_for_section_one import RequestsForFirstSection
 from app.storage.postgresql.request_for_section_two import RequestsForSecondSection
+from app.storage.postgresql.request_for_section_three import RequestsForThirdSection
 from app.schemas.text_reports import TableStandart
 
 
-async def get_table_by_section(session: AsyncSession, section_num: int, table_num: int) -> TableStandart:  # TODO: Вводить код предмета и экзамена пользователем
+async def get_table_by_section(session: AsyncSession, section_num: int, table_num: int, year: int, exam_type_id: int, subject_id: int) -> TableStandart:  # TODO: Вводить код предмета и экзамена пользователем
     result = TableStandart(table_name="Not found section or table", column_names=[], str_names=[], data=[])
     match section_num:
         case 1:
-            manager = RequestsForFirstSection(year=2025, exam_type_id=4, subject_id=2, start_date=datetime(2025, 5, 27), end_date=datetime(2025, 7, 4))
+            manager = RequestsForFirstSection(year=year, exam_type_id=exam_type_id, subject_id=subject_id)
             match table_num:
                 case 1:
                     result = await manager.getTable_count(session)
@@ -25,7 +25,7 @@ async def get_table_by_section(session: AsyncSession, section_num: int, table_nu
                 case 0:
                     result = await manager.getTable_profBaseMat(session)
         case 2:
-            manager = RequestsForSecondSection(year=2025, exam_type_id=4, subject_id=2, start_date="2024-05-27", end_date="2024-07-04")
+            manager = RequestsForSecondSection(year=year, exam_type_id=exam_type_id, subject_id=subject_id)
             match table_num:
                 case 1:
                     result = await manager.getTable_scoreDictribution(session)
@@ -43,4 +43,6 @@ async def get_table_by_section(session: AsyncSession, section_num: int, table_nu
                     result = await manager.getTable_hightResults(session)
                 case 8:
                     result = await manager.getTable_lowResults(session)
+        case 3:
+            manager = RequestsForThirdSection(year=year, exam_type_id=exam_type_id, subject_id=subject_id)
     return result
