@@ -2,11 +2,11 @@ from docx import Document as initDocument
 from docx.document import Document
 from docx.table import Table as WordTable
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.oxml import parse_xml
+from docx.enum.section import WD_ORIENTATION
+from docx.shared import Inches
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.table_rep_manager import table_rep_manager as tableRepManager
-from app.services.report_to_file.optimize_table_column_weight import optimize_table_column_weight
 from app.schemas.text_reports import TableStandart
 
 
@@ -80,11 +80,27 @@ def add_table(doc: Document, table: TableStandart, section_name: str, table_name
     
     add_table_header(word_table, table.column_names, is_dif_head)
     add_table_body(word_table, table.data, header_len)
-    optimize_table_column_weight(word_table)
+
+
+def create_doc_file() -> Document:
+    doc = initDocument()
+    
+    section = doc.sections[0]
+    
+    section.orientation = WD_ORIENTATION.LANDSCAPE
+    
+    section.page_width, section.page_height = section.page_height, section.page_width
+    
+    section.left_margin = Inches(0.5)
+    section.right_margin = Inches(0.5)
+    section.top_margin = Inches(0.5)
+    section.bottom_margin = Inches(0.5)
+    
+    return doc
 
 
 async def get_docx_file(session: AsyncSession, section_num: int, exam_year: int, exam_type_id:int, subject_id: int):
-    doc = initDocument()
+    doc = create_doc_file()
     
     table_ind = 0
     while True:
