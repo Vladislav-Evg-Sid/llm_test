@@ -1,14 +1,12 @@
 from docx import Document as initDocument
 from docx.document import Document
 from docx.table import Table as WordTable
-from docx.shared import RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from datetime import datetime
+from docx.oxml import parse_xml
 from sqlalchemy.ext.asyncio import AsyncSession
-import io
-import random
 
-from app.services.llm_service import table_rep_manager as tableRepManager
+from app.services.llm_service.service import table_rep_manager as tableRepManager
+from app.services.llm_service.report2docx.optimize_table_column_weight import optimize_table_column_weight
 from app.schemas.text_reports import TableStandart
 
 
@@ -55,7 +53,7 @@ def add_table_body(word_table: WordTable, body: list[list[str | int | float]], h
             row_cells[col_idx].text = str(cell_data)
 
 
-def add_table(doc: Document, table: TableStandart, section_name: str, table_name: str) -> None:
+def add_table_titels(doc: Document, section_name: str, table_name: str) -> None:
     section_text = doc.add_paragraph()
     section_run = section_text.add_run(section_name)
     section_run.bold = True
@@ -64,18 +62,25 @@ def add_table(doc: Document, table: TableStandart, section_name: str, table_name
     title_run = title_text.add_run(table_name)
     title_text.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     title_run.italic = True
+
+
+def create_table(doc: Document, rows: int, cols: int) -> WordTable:
+    word_table = doc.add_table(rows=rows, cols=cols)
+    word_table.style = "Table Grid"
+    return word_table
+
+
+def add_table(doc: Document, table: TableStandart, section_name: str, table_name: str) -> None:
+    add_table_titels(doc, section_name, table_name)
     
     is_dif_head = is_difficult_table_header(table.column_names)
     header_len = 2 if is_dif_head else 1
     
-    word_table = doc.add_table(
-        rows=len(table.data) + header_len,
-        cols=len(table.column_names)
-    )
-    word_table.style = "Table Grid"
+    word_table = create_table(doc, len(table.data) + header_len, len(table.column_names))
     
     add_table_header(word_table, table.column_names, is_dif_head)
     add_table_body(word_table, table.data, header_len)
+    optimize_table_column_weight(word_table)
 
 
 async def get_docx_file(session: AsyncSession, section_num: int, exam_year: int, exam_type_id:int, subject_id: int):

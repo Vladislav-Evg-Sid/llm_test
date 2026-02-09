@@ -5,9 +5,9 @@ from app.storage.qdrant.qdrant_manager import QdrantReportsStorage
 from app.api import qdrant, text_reports
 
 if os.getenv('CURRENT_DEVICE') == "server":
-    from app.services.llm_service.llm import LLMService
+    from app.services.llm_service.for_llm.llm import LLMService
 else:
-    from app.services.llm_service.llm_plug import LLMService
+    from app.services.llm_service.for_llm.llm_plug import LLMService
 
 app = FastAPI(title="Heavy Class Demo")
 
