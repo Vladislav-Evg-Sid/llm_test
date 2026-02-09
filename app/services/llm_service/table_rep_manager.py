@@ -34,11 +34,13 @@ async def get_table_by_section(session: AsyncSession, section_num: int, table_nu
                 case 3:
                     result = await manager.getTable_resultByStudCat(session)
                 case 4:
-                    result = await manager.getTable_resultBySchoolTypes(session)
+                    result = await manager.getTable_resultBySchoolKinds(session)
                 case 5:
                     result = await manager.getTable_resultBySex(session)
                 case 6:
                     result = await manager.getTable_resultByAreas(session)
                 case 7:
+                    result = await manager.getTable_hightResults(session)
+                case 8:
                     result = await manager.getTable_lowResults(session)
     return result

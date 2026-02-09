@@ -26,7 +26,7 @@ def add_table_header(word_table: WordTable, header: list[str], idh: bool) -> Non
         for i, h in enumerate(header):
             cell = word_table.cell(0, i)
             if "|" in h:
-                row1, row2 = h.split("|")[:2]
+                row1, row2 = h.split(" | ")[:2]
                 if row1 == merging_cell_data:
                     if cell_to_merge:
                         cell_to_merge.merge(word_table.cell(0, i))

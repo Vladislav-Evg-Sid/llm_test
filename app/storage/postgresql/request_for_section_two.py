@@ -6,6 +6,7 @@ from decimal import Decimal
 from app.models.models import *
 from app.schemas.text_reports import *
 from app.storage.postgresql.request_for_section_abc import RequestsForSections
+from app.utils.debug.print_orm_query import print_SQL_by_ORM
 
 
 class RequestsForSecondSection(RequestsForSections):
@@ -35,7 +36,7 @@ class RequestsForSecondSection(RequestsForSections):
             self.getTable_scoreDictribution(session),
             self.getTable_resultDynamic(session),
             self.getTable_resultByStudCat(session),
-            self.getTable_resultBySchoolTypes(session),
+            self.getTable_resultBySchoolKinds(session),
             self.getTable_resultBySex(session),
             self.getTable_resultByAreas(session),
             self.getTable_hightResults(session),
@@ -87,11 +88,14 @@ class RequestsForSecondSection(RequestsForSections):
     async def _getTable_scoreRanges(
             self,
             session: AsyncSession,
+            main_columns: list[Column],
             group_by: list[Column],
             dop_col: ColumnElement,
             year_count: int,
             dop_joins: list[tuple[Column, any]] = [],
             dop_joins_for_cte: list[tuple[Column, any]] = [],
+            dop_filters: list[any] = None,
+            order_by: list[Column] = None
         ) -> list[tuple[int | float]]:
         """Дополнительный метод, обобщающий логику формирования таблиц результатов участников по диапазонам баллов
         
@@ -115,7 +119,7 @@ class RequestsForSecondSection(RequestsForSections):
         
         query = (
             select(
-                *group_by,
+                *main_columns,
                 self._calculteProcent(func.sum(case((ExamResults.score == 2, 1), else_=0)), func.min(all_students_count.c.stud_count)),
                 self._calculteProcent(func.sum(case((and_(ExamResults.score != 2, ExamResults.final_points < 61), 1), else_=0)), func.min(all_students_count.c.stud_count)),
                 self._calculteProcent(func.sum(case((ExamResults.final_points.between(61, 80), 1), else_=0)), func.min(all_students_count.c.stud_count)),
@@ -134,7 +138,14 @@ class RequestsForSecondSection(RequestsForSections):
             conditions.append(all_students_count.c[i] == group_by[i])
         query = query.join(all_students_count, and_(*conditions))
         
+        if dop_filters is not None:
+            for df in dop_filters:
+                query = query.filter(df)
+        
         query = query.group_by(*group_by).order_by(*group_by)
+        
+        if order_by is not None:
+            query = query.order_by(*order_by)
         
         query = await session.execute(query)
         
@@ -162,6 +173,7 @@ class RequestsForSecondSection(RequestsForSections):
         
         data = await self._getTable_scoreRanges(
             session=session,
+            main_columns=[TestSchemes.exam_year],
             group_by=[TestSchemes.exam_year],
             dop_col=func.round(func.avg(ExamResults.final_points), 1),
             year_count=3
@@ -169,18 +181,20 @@ class RequestsForSecondSection(RequestsForSections):
         
         result = TableStandart(
             column_names=[
+                "№ п/п",
                 "Участников, набравших балл",
                 f"Год проведения ГИА | {self.year-2} г.",
                 f"Год проведения ГИА | {self.year-1} г.",
                 f"Год проведения ГИА | {self.year} г.",
             ],
-            data = [[""]*4 for i in range(5)]
+            data = [[""]*5 for i in range(5)]
         )
         
         for i in range(len(data)):
             for j in range(1, len(data[i])):
-                result.data[j-1][0] = category_names[j-1]
-                result.data[j-1][i+1] = float(data[i][j])
+                result.data[j-1][0] = f"{j}."
+                result.data[j-2][1] = category_names[j-1]
+                result.data[j-2][i+2] = float(data[i][j])
         result.table_name = "Динамика результатов ЕГЭ по предмету за последние 3 года"
         
         self._tables.resultDynamic = result
@@ -204,6 +218,7 @@ class RequestsForSecondSection(RequestsForSections):
         
         data = await self._getTable_scoreRanges(
             session=session,
+            main_columns=[Students.is_ovz, Students.category_id],
             group_by=[Students.is_ovz, Students.category_id],
             dop_col=func.count(Students.id),
             year_count=1,
@@ -213,6 +228,7 @@ class RequestsForSecondSection(RequestsForSections):
         
         result = TableStandart(
             column_names=[
+                "№ п/п",
                 "Категории участников",
                 "Количество участников, чел.",
                 "Доля участников, у которых полученный тестовый балл | ниже минимального",
@@ -220,24 +236,26 @@ class RequestsForSecondSection(RequestsForSections):
                 "Доля участников, у которых полученный тестовый балл | от 61 до 80 баллов",
                 "Доля участников, у которых полученный тестовый балл | от 81 до 100 баллов",
             ],
-            data=[[0]*6 for i in range(5)]
+            data=[[0]*7 for i in range(4)]
         )
+        for i, cn in enumerate(category_names):
+            result.data[i][0] = f"{i+1}."
+            result.data[i][1] = cn
         for d in data:
-            if d[0]:
+            if d[0]:  # Это ОВЗ
                 for i in range(2, len(d)):
                     if isinstance(d[i], Decimal):
-                        result.data[-1][i] = float(d[i])
+                        result.data[-1][i+1] = float(d[i])
                     else:
-                        result.data[-1][1] += d[i]
+                        result.data[-1][2] += d[i]
             else:
                 for c in range(len(categories)):
                     if categories[c] == d[1]:
                         for i in range(2, len(d)):
                             if isinstance(d[i], Decimal):
-                                print(">>>", len(result.data[c]), i)
-                                result.data[c][i] += float(d[i])
+                                result.data[c][i+1] += float(d[i])
                             else:
-                                result.data[c][1] += d[i]
+                                result.data[c][2] += d[i]
                         break
         result.table_name = "Результаты ЕГЭ по учебному предмету по группам участников экзамена с различным уровнем подготовки в разрезе категории участника ЕГЭ"
         
@@ -245,7 +263,7 @@ class RequestsForSecondSection(RequestsForSections):
         
         return result
     
-    async def getTable_resultBySchoolTypes(self, session: AsyncSession) -> TableStandart:
+    async def getTable_resultBySchoolKinds(self, session: AsyncSession) -> TableStandart:
         """Формирует таблицу динамики результатов ЕГЭ в разрезе типов школ
         
         Args:
@@ -259,18 +277,22 @@ class RequestsForSecondSection(RequestsForSections):
         
         data = await self._getTable_scoreRanges(
             session=session,
-            group_by=[SchoolKinds.name],
+            main_columns=[SchoolKinds.name],
+            group_by=[SchoolKinds.code],
             dop_col=func.count(Students.id),
             year_count=1,
             dop_joins=[
                 (Students, Students.id == ExamResults.student_id),
                 (Schools, Schools.code == Students.school_id),
                 (SchoolKinds, SchoolKinds.code == Schools.kind_code)
-            ]
+            ],
+            dop_filters=[SchoolKinds.code.in_([101, 102, 103, 104, 1001, 2201])],
+            order_by=[SchoolKinds.code]
         )
         
         result = TableStandart(
             column_names=[
+                "№ п/п",
                 "Тип ОО",
                 "Количество участников, чел.",
                 "Доля участников, у которых полученный тестовый балл | ниже минимального",
@@ -279,14 +301,15 @@ class RequestsForSecondSection(RequestsForSections):
                 "Доля участников, у которых полученный тестовый балл | от 81 до 100 баллов",
             ]
         )
-        for d in data:
-            result.data.append([0]*6)
-            result.data[-1][0] = d[0]
+        for di, d in enumerate(data):
+            result.data.append([0]*7)
+            result.data[-1][0] = f"{di+1}."
+            result.data[-1][1] = d[0]
             for i in range(1, len(d)):
                 if isinstance(d[i], Decimal):
-                    result.data[-1][i+1] = float(d[i])
+                    result.data[-1][i+2] = float(d[i])
                 else:
-                    result.data[-1][1] += d[i]
+                    result.data[-1][2] += d[i]
         result.table_name = "Результаты ЕГЭ по учебному предмету по группам участников экзамена с различным уровнем подготовки в разрезе типа ОО"
         
         self._tables.resultBySchoolTypes = result
@@ -307,6 +330,7 @@ class RequestsForSecondSection(RequestsForSections):
         
         data = await self._getTable_scoreRanges(
             session=session,
+            main_columns=[Students.sex],
             group_by=[Students.sex],
             dop_col=func.count(Students.id),
             year_count=1,
@@ -320,6 +344,7 @@ class RequestsForSecondSection(RequestsForSections):
         
         result = TableStandart(
             column_names=[
+                "№ п/п",
                 "Пол",
                 "Количество участников, чел.",
                 "Доля участников, у которых полученный тестовый балл | ниже минимального",
@@ -328,14 +353,15 @@ class RequestsForSecondSection(RequestsForSections):
                 "Доля участников, у которых полученный тестовый балл | от 81 до 100 баллов",
             ]
         )
-        for d in data:
-            result.data.append([0]*6)
-            result.data[-1][0] = "женский" if d[0] else "мужской"
+        for di, d in enumerate(data):
+            result.data.append([0]*7)
+            result.data[-1][0] = f"{di+1}."
+            result.data[-1][1] = "женский" if d[0] else "мужской"
             for i in range(1, len(d)):
                 if isinstance(d[i], Decimal):
-                    result.data[-1][i+1] = float(d[i])
+                    result.data[-1][i+2] = float(d[i])
                 else:
-                    result.data[-1][1] += d[i]
+                    result.data[-1][2] += d[i]
         result.table_name = "Результаты ЕГЭ по учебному предмету по группам участников экзамена с различным уровнем подготовки юношей и девушек"
         
         self._tables.resultBySex = result
@@ -356,7 +382,8 @@ class RequestsForSecondSection(RequestsForSections):
         
         data = await self._getTable_scoreRanges(
             session=session,
-            group_by=[func.concat(Areas.code, " - ", Areas.name)],
+            main_columns=[func.concat(Areas.code, " - ", Areas.name)],
+            group_by=[Areas.code],
             dop_col=func.count(Students.id),
             year_count=1,
             dop_joins=[
@@ -373,6 +400,7 @@ class RequestsForSecondSection(RequestsForSections):
         
         result = TableStandart(
             column_names=[
+                "№ п/п",
                 "Наименование АТЕ",
                 "Количество участников, чел.",
                 "Доля участников, у которых полученный тестовый балл | ниже минимального",
@@ -381,14 +409,15 @@ class RequestsForSecondSection(RequestsForSections):
                 "Доля участников, у которых полученный тестовый балл | от 81 до 100 баллов",
             ]
         )
-        for d in data:
-            result.data.append([0]*6)
-            result.data[-1][0] = d[0]
+        for di, d in enumerate(data):
+            result.data.append([0]*7)
+            result.data[-1][0] = f"{di+1}."
+            result.data[-1][1] = d[0]
             for i in range(1, len(d)):
                 if isinstance(d[i], Decimal):
-                    result.data[-1][i+1] = float(d[i])
+                    result.data[-1][i+2] = float(d[i])
                 else:
-                    result.data[-1][1] += d[i]
+                    result.data[-1][2] += d[i]
         result.table_name = "Результаты ЕГЭ по учебному предмету по группам участников экзамена с различным уровнем подготовки в сравнении по АТЕ"
         
         self._tables.resultByAreas = result
@@ -420,17 +449,18 @@ class RequestsForSecondSection(RequestsForSections):
         query = (
             select(
                 func.concat(Schools.code, " - ", Schools.short_name).label("str_names"),
-                self._calculteProcent(func.sum(case((ExamResults.score == 2, 1), else_=0)), func.min(all_students_count.c.stud_count)).label("to_order_4"),
-                self._calculteProcent(func.sum(case((and_(ExamResults.score != 2, ExamResults.final_points < 61), 1), else_=0)), func.min(all_students_count.c.stud_count)).label("to_order_3"),
-                self._calculteProcent(func.sum(case((ExamResults.final_points.between(61, 80), 1), else_=0)), func.min(all_students_count.c.stud_count)).label("to_order_2"),
+                func.count(Students.id),
                 self._calculteProcent(func.sum(case((ExamResults.final_points.between(81, 100), 1), else_=0)), func.min(all_students_count.c.stud_count)).label("to_order_1"),
-                func.count(Students.id)
+                self._calculteProcent(func.sum(case((ExamResults.final_points.between(61, 80), 1), else_=0)), func.min(all_students_count.c.stud_count)).label("to_order_2"),
+                self._calculteProcent(func.sum(case((and_(ExamResults.score != 2, ExamResults.final_points < 61), 1), else_=0)), func.min(all_students_count.c.stud_count)).label("to_order_3"),
+                self._calculteProcent(func.sum(case((ExamResults.score == 2, 1), else_=0)), func.min(all_students_count.c.stud_count)).label("to_order_4")
             ).select_from(ExamResults)
             .join(TestSchemes, TestSchemes.id == ExamResults.schema_id)
             .join(only_last_res, and_(only_last_res.c.exam_id == ExamResults.id, only_last_res.c.rn == 1))
             .join(Students, Students.id == ExamResults.student_id)
             .join(Schools, Schools.code == Students.school_id)
             .join(all_students_count, all_students_count.c[0] == func.concat(Schools.code, " - ", Schools.short_name))
+            .filter(Students.category_id == 1)  # TODO: Тут берём только школы, в которых больше чем N участников (Вопрос: чему равен N?)
             .group_by("str_names")
             .order_by(desc("to_order_1"), desc("to_order_2"), desc("to_order_3"), desc("to_order_4"))
             .limit(14)
@@ -441,22 +471,24 @@ class RequestsForSecondSection(RequestsForSections):
         
         result = TableStandart(
             column_names=[
-                "Наименование АТЕ",
-                "Количество участников, чел.",
-                "Доля участников, у которых полученный тестовый балл | от 81 до 100 баллов",
-                "Доля участников, у которых полученный тестовый балл | от 61 до 80 баллов",
-                "Доля участников, у которых полученный тестовый балл | от минимального балла до 60 баллов",
-                "Доля участников, у которых полученный тестовый балл | ниже минимального",
+                "№ п/п",
+                "Наименование ОО",
+                "Количество ВТГ, чел.",
+                "Доля ВТГ, получивших тестовый балл | от 81 до 100 баллов",
+                "Доля ВТГ, получивших тестовый балл | от 61 до 80 баллов",
+                "Доля ВТГ, получивших тестовый балл | от минимального балла до 60 баллов",
+                "Доля ВТГ, получивших тестовый балл | ниже минимального",
             ]
         )
-        for d in data:
-            result.data.append([0]*6)
-            result.data[-1][0] = d[0]
+        for di, d in enumerate(data):
+            result.data.append([0]*7)
+            result.data[-1][0] = f"{di+1}."
+            result.data[-1][1] = d[0]
             for i in range(1, len(d)):
                 if isinstance(d[i], Decimal):
-                    result.data[-1][-i+1] = float(d[i])
+                    result.data[-1][i+1] = float(d[i])
                 else:
-                    result.data[-1][1] += d[i]
+                    result.data[-1][2] += d[i]
         result.table_name = "Перечень ОО, продемонстрировавших наиболее высокие результаты ЕГЭ по предмету"
         
         self._tables.hightResults = result
@@ -488,43 +520,47 @@ class RequestsForSecondSection(RequestsForSections):
         query = (
             select(
                 func.concat(Schools.code, " - ", Schools.short_name).label("str_names"),
+                func.count(Students.id),
                 self._calculteProcent(func.sum(case((ExamResults.score == 2, 1), else_=0)), func.min(all_students_count.c.stud_count)).label("to_order_1"),
                 self._calculteProcent(func.sum(case((and_(ExamResults.score != 2, ExamResults.final_points < 61), 1), else_=0)), func.min(all_students_count.c.stud_count)).label("to_order_2"),
                 self._calculteProcent(func.sum(case((ExamResults.final_points.between(61, 80), 1), else_=0)), func.min(all_students_count.c.stud_count)).label("to_order_3"),
-                self._calculteProcent(func.sum(case((ExamResults.final_points.between(81, 100), 1), else_=0)), func.min(all_students_count.c.stud_count)).label("to_order_4"),
-                func.count(Students.id)
+                self._calculteProcent(func.sum(case((ExamResults.final_points.between(81, 100), 1), else_=0)), func.min(all_students_count.c.stud_count)).label("to_order_4")
             ).select_from(ExamResults)
             .join(TestSchemes, TestSchemes.id == ExamResults.schema_id)
             .join(only_last_res, and_(only_last_res.c.exam_id == ExamResults.id, only_last_res.c.rn == 1))
             .join(Students, Students.id == ExamResults.student_id)
             .join(Schools, Schools.code == Students.school_id)
             .join(all_students_count, all_students_count.c[0] == func.concat(Schools.code, " - ", Schools.short_name))
+            .filter(Students.category_id == 1)
             .group_by("str_names")
             .order_by(desc("to_order_1"), desc("to_order_2"), desc("to_order_3"), desc("to_order_4"))
             .limit(14)
         )
+        print_SQL_by_ORM(query)
         
         query = await session.execute(query)
         data = query.all()
         
         result = TableStandart(
             column_names=[
-                "Наименование АТЕ",
-                "Количество участников, чел.",
-                "Доля участников, у которых полученный тестовый балл | ниже минимального",
-                "Доля участников, у которых полученный тестовый балл | от минимального балла до 60 баллов",
-                "Доля участников, у которых полученный тестовый балл | от 61 до 80 баллов",
-                "Доля участников, у которых полученный тестовый балл | от 81 до 100 баллов",
+                "№ п/п",
+                "Наименование ОО",
+                "Количество ВТГ, чел.",
+                "Доля ВТГ, получивших тестовый балл | ниже минимального",
+                "Доля ВТГ, получивших тестовый балл | от минимального балла до 60 баллов",
+                "Доля ВТГ, получивших тестовый балл | от 61 до 80 баллов",
+                "Доля ВТГ, получивших тестовый балл | от 81 до 100 баллов",
             ]
         )
-        for d in data:
-            result.data.append([0]*6)
-            result.data[-1][0] = d[0]
+        for di, d in enumerate(data):
+            result.data.append([0]*7)
+            result.data[-1][0] = f"{di+1}."
+            result.data[-1][1] = d[0]
             for i in range(1, len(d)):
                 if isinstance(d[i], Decimal):
                     result.data[-1][i+1] = float(d[i])
                 else:
-                    result.data[-1][1] += d[i]
+                    result.data[-1][2] += d[i]
         result.table_name = "Перечень ОО, продемонстрировавших низкие результаты ЕГЭ по предмету"
         
         self._tables.lowResults = result
