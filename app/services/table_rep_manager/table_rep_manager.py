@@ -47,5 +47,7 @@ async def get_table_by_section(session: AsyncSession, section_num: int, table_nu
             manager = RequestsForThirdSection(year=year, exam_type_id=exam_type_id, subject_id=subject_id)
             match table_num:
                 case 1:
-                    result = await manager.getTable_baseStatAllSkills(session)
+                    result = await manager.getTable_baseStatForSkills(session)
+                case 2:
+                    result = await manager.getTable_statForSkillsAccountingGrades(session)
     return result
