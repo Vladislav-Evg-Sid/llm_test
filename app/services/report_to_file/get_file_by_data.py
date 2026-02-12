@@ -47,6 +47,7 @@ def add_table_header(word_table: WordTable, header: list[str], idh: bool) -> Non
 
 
 def add_table_body(word_table: WordTable, body: list[list[str | int | float]], header_len: int) -> None:
+    print("body data:", body[0])
     for row_idx, row_data in enumerate(body, header_len):
         row_cells = word_table.rows[row_idx].cells
         for col_idx, cell_data in enumerate(row_data):
@@ -65,6 +66,7 @@ def add_table_titels(doc: Document, section_name: str, table_name: str) -> None:
 
 
 def create_table(doc: Document, rows: int, cols: int) -> WordTable:
+    print("rows, cols:", rows, cols)
     word_table = doc.add_table(rows=rows, cols=cols)
     word_table.style = "Table Grid"
     return word_table
@@ -79,6 +81,7 @@ def add_table(doc: Document, table: TableStandart, section_name: str, table_name
     word_table = create_table(doc, len(table.data) + header_len, len(table.column_names))
     
     add_table_header(word_table, table.column_names, is_dif_head)
+    print(section_name, table_name)
     add_table_body(word_table, table.data, header_len)
 
 

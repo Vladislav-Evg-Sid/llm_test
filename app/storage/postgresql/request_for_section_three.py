@@ -147,12 +147,12 @@ class RequestsForThirdSection(RequestsForSections):
         )
         
         for d in data:
-            result.data.append([None]*8)
+            result.data.append([None]*6)
             for i in range(len(d)):
                 if isinstance(d[i], float):
                     result.data[-1][i] = float(d[i])
                 else:
                     result.data[-1][i] = d[i]
-        result.table_name = "Основные статистические характеристики выполнения заданий КИМ"
+        result.table_name = "Основные статистические характеристики выполнения заданий КИМ по полученным баллам"
         
         return result
