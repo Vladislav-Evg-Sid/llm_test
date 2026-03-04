@@ -1,12 +1,10 @@
-from typing import AsyncGenerator
-
 from app.schemas.qdrant import QdrantAddReportResponse, QdrantAddReportRequest, QdrantAllReportsResponse, QdrantDeleteReportResponse, QdrantReportSectionsComparisonResponce
 from app.storage.qdrant.qdrant_manager import QdrantReportsStorage
 
 class QdrantReportsService:
     def __init__(self):
         self.storage = QdrantReportsStorage()
-    
+
     async def add_report(self, data: QdrantAddReportRequest) -> QdrantAddReportResponse:
         """Добавление отчёта в векторную БД"""
         return self.storage.add_report(data)
