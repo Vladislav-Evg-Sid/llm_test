@@ -4,15 +4,17 @@ class QdrantCollectionResponse(BaseModel):
     success: bool = True
     messange: str = ""
 
-class QdrantReportSection(BaseModel):
-    code: str
-    text: str | list[str]
-
-class QdrantAddReportRequest(BaseModel):
+class QdrantAddReport(BaseModel):
     year: int
     title: str
     super_subject_id: int 
     exam_type: str
+
+class QdrantReportSection(BaseModel):
+    code: str
+    text: str | list[str]
+
+class QdrantReportSectionData(QdrantAddReport):
     sections: list[QdrantReportSection]
 
 class QdrantAddReportResponse(BaseModel):
@@ -40,3 +42,16 @@ class QdrantReportSectionsComparisonResponce(BaseModel):
     section_code: str = ""
     section_title: str = ""
     cosine_distance: float = 0.0
+
+class QdrantReportSectionResponce(BaseModel):
+    code: str
+    text: str | list[str]
+    vector: list[float]
+
+class QdrantReportSectionData(QdrantAddReport):
+    sections: list[QdrantReportSectionResponce]
+
+class QdrantReportDataResponce(BaseModel):
+    id: str = "x-x-x-x-x"
+    payload: list[QdrantReportSectionData] = list()
+    vector: list[float] = list()

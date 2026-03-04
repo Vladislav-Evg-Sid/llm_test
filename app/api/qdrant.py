@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
 
-from app.schemas.qdrant import QdrantAddReportResponse, QdrantAddReportRequest, QdrantAllReportsResponse, QdrantDeleteReportResponse, QdrantReportSectionsComparisonResponce
+from app.schemas.qdrant import QdrantAddReportResponse, QdrantReportSectionData, QdrantAllReportsResponse, QdrantDeleteReportResponse, QdrantReportSectionsComparisonResponce
 from app.services.qdrant_service.qdrant_service import QdrantReportsService, get_qdrant_report_service
 
 router = APIRouter(
@@ -10,7 +10,7 @@ router = APIRouter(
 
 # Взаимодействие с qdrant
 @router.post("/add", response_model=QdrantAddReportResponse)
-async def qdrant_set_data(data: QdrantAddReportRequest, qd_manager: QdrantReportsService = Depends(get_qdrant_report_service)) -> QdrantAddReportResponse:
+async def qdrant_set_data(data: QdrantReportSectionData, qd_manager: QdrantReportsService = Depends(get_qdrant_report_service)) -> QdrantAddReportResponse:
     """Добавление отчёта в векторную БД"""
     return await qd_manager.add_report(data)
 

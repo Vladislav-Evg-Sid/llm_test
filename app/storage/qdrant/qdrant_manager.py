@@ -9,7 +9,16 @@ from dotenv import load_dotenv
 import uuid
 import numpy as np
 
-from app.schemas.qdrant import QdrantCollectionResponse, QdrantAddReportRequest, QdrantAddReportResponse, QdrantAllReportsResponse, QdrantDeleteReportResponse, QdrantTitleReport, QdrantReportSectionsComparisonResponce
+from app.schemas.qdrant import (
+    QdrantCollectionResponse,
+    QdrantReportSectionData,
+    QdrantAddReportResponse,
+    QdrantAllReportsResponse,
+    QdrantDeleteReportResponse,
+    QdrantTitleReport,
+    QdrantReportSectionsComparisonResponce,
+    QdrantReportDataResponce,
+)
 from app.utils.models_ml.local_dir import check_folder
 
 class QdrantReportsStorage:
@@ -162,7 +171,7 @@ class QdrantReportsStorage:
         
         return avg_embeding.tolist()
     
-    def add_report(self, report_data: QdrantAddReportRequest) -> QdrantAddReportResponse:
+    def add_report(self, report_data: QdrantReportSectionData) -> QdrantAddReportResponse:
         """Добавляет запись в векторную БД
         
         Args:
@@ -258,14 +267,14 @@ class QdrantReportsStorage:
             print(f"❌ Ошибка при получении списка отчётов: {e}")
             return QdrantAllReportsResponse(reports=[])
     
-    def get_report(self, report_id: str) -> dict[str, any] | None:
+    def get_report(self, report_id: str) -> QdrantReportDataResponce:
         """Возвращает отчёт по id
         
         Args:
             report_id (str): uuid искомого отчёта
             
         Returns:
-            Optional[Dict]: # TODO сделать pydantic модель
+            QdrantReportDataResponce: Вся информация об отчёте
         """
         try:
             points = self.client.retrieve(
