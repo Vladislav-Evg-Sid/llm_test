@@ -52,7 +52,7 @@ class QdrantReportsStorage:
         path_to_model = "app/models_ml/"
         print("Installing vectorization model...")
         match self.vect_model_name:
-            case 'BBAI/bge-m3':
+            case 'BAAI/bge-m3':
                 if not check_folder(path_to_model + self.vect_model_name.replace('/', '_')):
                     local_dir = snapshot_download(
                         repo_id=self.vect_model_name,
