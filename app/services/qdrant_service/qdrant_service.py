@@ -1,11 +1,18 @@
-from app.schemas.qdrant import QdrantAddReportResponse, QdrantAddReportRequest, QdrantAllReportsResponse, QdrantDeleteReportResponse, QdrantReportSectionsComparisonResponce
+from app.schemas.qdrant import (
+    QdrantAddReportResponse,
+    QdrantReportSectionData,
+    QdrantAllReportsResponse,
+    QdrantDeleteReportResponse,
+    QdrantReportSectionsComparisonResponce,
+    QdrantReportDataResponce,
+)
 from app.storage.qdrant.qdrant_manager import QdrantReportsStorage
 
 class QdrantReportsService:
     def __init__(self):
         self.storage = QdrantReportsStorage()
 
-    async def add_report(self, data: QdrantAddReportRequest) -> QdrantAddReportResponse:
+    async def add_report(self, data: QdrantReportSectionData) -> QdrantAddReportResponse:
         """Добавление отчёта в векторную БД"""
         return self.storage.add_report(data)
 
@@ -13,7 +20,7 @@ class QdrantReportsService:
         """Получение списка всех отчётов"""
         return self.storage.get_all_reports()
 
-    async def get_report_by_id(self, report_id: str) -> dict[str, any]:  # TODO Сделать Pydantic-модель
+    async def get_report_by_id(self, report_id: str) -> QdrantReportDataResponce:
         """Получение полных данных отчёта по ID"""
         return self.storage.get_report(report_id)
 
