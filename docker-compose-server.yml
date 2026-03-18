@@ -52,6 +52,7 @@ services:
       - QDRANT_PORT_GRPC=${QDRANT_PORT_GRPC}
       - VECT_QD_PORT=${VECT_QD_PORT}
       - LLM_PORT=${LLM_PORT}
+      - API_PORT=${API_PORT}
     depends_on:
       - db
       - qdrant

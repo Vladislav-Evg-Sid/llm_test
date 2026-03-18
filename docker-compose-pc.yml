@@ -53,7 +53,7 @@ services:
       - QDRANT_HOST=${QDRANT_HOST}
       - QDRANT_PORT_HTTP=${QDRANT_PORT_HTTP}
       - QDRANT_PORT_GRPC=${QDRANT_PORT_GRPC}
-      - VECT_QD_PORT=
+      - API_PORT=${API_PORT}
     # depends_on:
       # db:
         # condition: service_healthy
