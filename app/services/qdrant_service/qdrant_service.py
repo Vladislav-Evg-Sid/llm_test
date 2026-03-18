@@ -3,7 +3,7 @@ from os import getenv
 
 from app.schemas.qdrant import (
     QdrantAddReportResponse,
-    QdrantReportSectionData,
+    QdrantReportData,
     QdrantAllReportsResponse,
     QdrantDeleteReportResponse,
     QdrantReportSectionsComparisonResponce,
@@ -17,14 +17,23 @@ class QdrantReportsService:
         self.storage = QdrantReportsStorage()
         self.vectoriser_port = getenv('VECT_QD_PORT', None)
 
-    async def add_report(self, data: QdrantReportSectionData) -> QdrantAddReportResponse:
+    async def add_report(self, data: QdrantReportData) -> QdrantAddReportResponse:
         """Добавление отчёта в векторную БД"""
         if self.vectoriser_port is None:
             return QdrantAddReportResponse(
                 success=False,
                 messange="Vectoriser service is unavailable"
             )
-        return requests.get(f'http://vectoriser:{self.vectoriser_port}/data')
+        responce = requests.post(
+            f'http://vectoriser:{self.vectoriser_port}/vect_qdrant/add',
+            json=data
+        )
+        if responce.ok:
+            return QdrantAddReportResponse(**responce.json)
+        return QdrantAddReportResponse(
+            success=False,
+            messange=f"{responce.status_code}"
+        )
 
     async def get_all_reports(self) -> QdrantAllReportsResponse:
         """Получение списка всех отчётов"""

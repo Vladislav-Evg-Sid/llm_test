@@ -2,9 +2,32 @@ from huggingface_hub import snapshot_download
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
 from time import time as time_now
+from pathlib import Path
 
-from app.schemas.text_reports import LLMResponse
-from app.utils.models_ml.local_dir import check_folder
+from llm_app.schemas.llm import LLMGenerateResponce
+
+
+def check_folder(folder_path: str) -> bool:
+    """Проверяет наличие папки и то, что она не пуста
+
+    Args:
+        path (str): Путь к папке
+
+    Returns:
+        bool: Вердикт
+    """
+    path = Path(folder_path)
+    if not path.exists():
+        return False
+    
+    if not path.is_dir():
+        return False
+    
+    try:
+        next(path.iterdir())
+        return True
+    except:
+        return False
 
 
 class LLMService:
@@ -60,7 +83,7 @@ class LLMService:
         print("✅ Модель успешно загружена и готова к работе!")
         LLMService._initialized = True
     
-    def generate_response(self, promt) -> LLMResponse:
+    def generate_response(self, promt) -> LLMGenerateResponce:
         try:
             start_time = time_now()
             messages = [
@@ -85,14 +108,19 @@ class LLMService:
             
             end_time = time_now()
             
-            return LLMResponse(
+            return LLMGenerateResponce(
+                success=True,
                 text=response,
                 time=end_time-start_time
             )
             
         except Exception as e:
-            return LLMResponse(
+            return LLMGenerateResponce(
+                success=False,
                 text=f"⚠️ Ошибка при генерации: {str(e)}",
                 time=0
             )
-    
+
+
+def get_llm_service():
+    yield LLMService()

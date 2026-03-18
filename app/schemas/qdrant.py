@@ -57,3 +57,10 @@ class QdrantReportDataResponce(BaseModel):
     id: str = "x-x-x-x-x"
     payload: list[QdrantReportSectionData] = list()
     vector: list[float] = list()
+
+class QdrantReportData(BaseModel):
+    year: int
+    title: str
+    super_subject_id: int 
+    exam_type: str
+    sections: list[QdrantReportSection]

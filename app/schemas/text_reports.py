@@ -13,10 +13,6 @@ class LLMResponse(BaseModel):
     time: float = 0
 
 
-# class LLMFileResponse(BaseModel):
-    
-
-
 class TableStandart(BaseModel):
     table_name: str = ""
     column_names: list[str] = []
@@ -27,3 +23,13 @@ class GenerateData(BaseModel):
     promt: str = ""
     obligatury_text: list[str] = []
     template: list[str] = []
+
+
+class LLMGenerateRequest(BaseModel):
+    prompt: str
+
+
+class LLMGenerateResponce(BaseModel):
+    success: bool
+    text: str
+    time: float = 0
