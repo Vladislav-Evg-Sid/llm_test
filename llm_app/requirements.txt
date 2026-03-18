@@ -4,3 +4,4 @@ llm_app==0.3.6
 pydantic==2.12.5
 torch==2.9.1
 transformers==4.57.1
+uvicorn==0.34.2

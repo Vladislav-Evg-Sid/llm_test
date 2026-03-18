@@ -4,3 +4,4 @@ numpy==2.4.3
 pydantic==2.12.5
 qdrant_client==1.17.1
 sentence_transformers==5.1.2
+uvicorn==0.34.2
