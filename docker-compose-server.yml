@@ -76,7 +76,7 @@ services:
     container_name: llm-llmgenerator
     build:
       context: ./llm_app
-      dockerfile: Dockerfile.llm_app
+      dockerfile: Dockerfile.llm
     ports:
       - "${LLM_PORT}:${LLM_PORT}"
     depends_on:
