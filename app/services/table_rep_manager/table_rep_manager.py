@@ -6,7 +6,7 @@ from app.storage.postgresql.request_for_section_three import RequestsForThirdSec
 from app.schemas.text_reports import TableStandart
 
 
-async def get_table_by_section(session: AsyncSession, section_num: int, table_num: int, year: int, exam_type_id: int, subject_id: int) -> TableStandart:  # TODO: Вводить код предмета и экзамена пользователем
+async def get_table_by_section(session: AsyncSession, section_num: int, table_num: int, year: int, exam_type_id: int, subject_id: int) -> TableStandart:
     result = TableStandart(table_name="Not found section or table", column_names=[], str_names=[], data=[])
     match section_num:
         case 1:
