@@ -1,4 +1,4 @@
-*.txt
+promt.txt
 __pycache__
 app/models_ml
 *.backup
