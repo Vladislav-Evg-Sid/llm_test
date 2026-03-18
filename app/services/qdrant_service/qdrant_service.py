@@ -1,3 +1,6 @@
+import requests
+from os import getenv
+
 from app.schemas.qdrant import (
     QdrantAddReportResponse,
     QdrantReportSectionData,
@@ -8,13 +11,20 @@ from app.schemas.qdrant import (
 )
 from app.storage.qdrant.qdrant_manager import QdrantReportsStorage
 
+
 class QdrantReportsService:
     def __init__(self):
         self.storage = QdrantReportsStorage()
+        self.vectoriser_port = getenv('VECT_QD_PORT', None)
 
     async def add_report(self, data: QdrantReportSectionData) -> QdrantAddReportResponse:
         """Добавление отчёта в векторную БД"""
-        return self.storage.add_report(data)
+        if self.vectoriser_port is None:
+            return QdrantAddReportResponse(
+                success=False,
+                messange="Vectoriser service is unavailable"
+            )
+        return requests.get(f'http://vectoriser:{self.vectoriser_port}/data')
 
     async def get_all_reports(self) -> QdrantAllReportsResponse:
         """Получение списка всех отчётов"""

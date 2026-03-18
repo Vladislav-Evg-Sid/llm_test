@@ -12,6 +12,7 @@ class QdrantAddReport(BaseModel):
 
 class QdrantReportSection(BaseModel):
     code: str
+    name: str
     text: str | list[str]
 
 class QdrantReportSectionData(QdrantAddReport):
@@ -45,6 +46,7 @@ class QdrantReportSectionsComparisonResponce(BaseModel):
 
 class QdrantReportSectionResponce(BaseModel):
     code: str
+    name: str
     text: str | list[str]
     vector: list[float]
 
