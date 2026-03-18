@@ -45,7 +45,7 @@ class LLMService:
             
         print(f"⏳ Загружаем модель {model_name}...")
         print("📥 Это может занять несколько минут...")
-        path_to_model = "app/models_ml/"
+        path_to_model = "llm_app/models_ml/"
         if not check_folder(path_to_model + model_name.replace('/', '_')):
             # Скачиваем модель через mirror, если нет локальной папки
             local_dir = snapshot_download(

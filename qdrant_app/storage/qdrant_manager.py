@@ -74,7 +74,7 @@ class QdrantReportsStorage:
             prefer_grpc=False
         )
         self.collection_name = "reports"
-        path_to_model = "app/models_ml/"
+        path_to_model = "qdrant_app/models_ml/"
         print("Installing vectorization model...")
         match self.vect_model_name:
             case 'BAAI/bge-m3':
