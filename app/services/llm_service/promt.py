@@ -3,58 +3,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.storage.postgresql.request_for_section_abc import RequestsForSections
 from app.storage.postgresql.request_for_section_one import RequestsForFirstSection
 from app.storage.postgresql.request_for_section_two import RequestsForSecondSection
-from app.storage.qdrant import qdrant_manager as QdrantStorage
+from app.storage.qdrant.qdrant_manager import QdrantReportsStorage
 from app.schemas.text_reports import TableStandart, GenerateData, LLMRequest
-
-
-def getSectionName(section_code: str) -> str:
-    """Временная функци. Заглушка вместо qdrant
-
-    Args:
-        section (int): Код раздела
-
-    Returns:
-        str: Название раздела
-    """
-    match section_code:
-        case "1.7.":
-            return "Выводы о характере изменения количества участников ЕГЭ по учебному предмету"
-        case "2.5.":
-            return "Выводы о характере изменения результатов ЕГЭ по предмету"
-
-
-def getExampleTextForPromt(subject_code: int, year: int, section_code: str) -> str:
-    """Временная функци. Заглушка вместо qdrant
-
-    Args:
-        subject_code (int): Код предмета
-        year (int): Текущий год
-
-    Returns:
-        str: Промт
-    """    
-    year -= 1
-    match subject_code:
-        case 2:
-            match year:
-                case 2024:
-                    match section_code:
-                        case "1.7.":
-                            return """Исходя из анализа количественного показателя по участникам в дисциплине «профильная математика в формате ЕГЭ» можно видеть стабильное уменьшение числа сдающих экзамен: по сравнению с 2022 годом «-320», с 2023 годом – «-140», причем стабильно падает показатель в СОШ, Гимназиях и Лицеях.
-Основываясь на данной статистике и статистике по базовой математике, делаем вывод, что приоритет склоняется в пользу последней, базовой математике. Тут можно, на наш взгляд, указать следующие причины:
-- с одной стороны, это определённая сложность в изучении математики на хорошем уровне, с другой стороны выпускниками школ делается выбор «по пути наименьшего сопротивления».
-- увеличение количества бюджетных мест в ВУЗах, не требующих наличие профильной математики как вступительного экзамена.
-- слабая развивающая работа ОО в младших классах и среднем звене (это не говоря уже и старшем звене), где вся работа сводится теперь только к положительному результату в написанию ВПР, так сказать, дрессировка, как в цирке, но там выполняют ту же программу, что и тренировали, а в образовании всё не так.
-Ради справедливости, следует отметить, что осознанный выбор профильного экзамена учащимися, на протяжении вот уже нескольких лет, даёт свои результаты и это положительно отражается на качественном содержании проверяемых работ, т.е. пустых работ стало гораздо меньше."""
-                        case "2.5.":
-                            return """По результатам выполнения заданий ЕГЭ 2024 года по математике (профильный уровень) имеет место изменение следующих показателей (см. Таблицу 2-6):
-- среднего балла («+6,6» с 2022 годом, «+7,2» с 2023 годом);
-- участников, получивших баллы ниже минимальных («-4,3%» с 2022 годом и «-2,8%» с 2023 годом);
-- участников, получивших баллы от 61 до 80 («-2,6%» с 2022 годом и «-0,9%» с 2023 годом);
-- участников, получивших баллы от 81 до 100 («+11,3%» с 2022 годом и «+11,5%» с 2023 годом).
-Стоит заметить, что столь резкое увеличение среднего балла, а также увеличение участников, получивших баллы от 81 до 100 может быть обусловлено изменением шкалы перевода первичных баллов во вторичные, а также с облегчением варианта итогового экзамена по сравнению с прошлым годом.
-Хочется отметить старания большинства районных школ, у которых красуется «0» в разделе «не преодолевшие минимальный порог». Также радует, что их представительство в нижнем топе уменьшается, а вот городские школы города Тюмени заполняют эти неприятные позиции. С уже постоянной частотой представители муниципалитетов, помимо Тюмени, появляются в верхнем топ рейтинге.
-Можно подвести небольшой итог. Также хочется отметить, что неизменность структуры ЕГЭ на протяжении достаточно продолжительного промежутка времени играла условно положительную роль, но хотелось бы интересных изменений, ибо такой процесс ориентирует, участников учебного процесса не на получение систематических знаний по математике, а на приобретение навыков решения конкретных заданий, а изменение их условий ведет к резкому ухудшению качества выполнения. Процесс обновления запущенный в прошлом году показал, что половина (в долевом показателе) высокобалльников (группа «81-100») не готова к новшествам и привыкла работать на знакомых алгоритмах и происходит «натаскивание» на определённые алгоритмы и любое, даже самое малейшее, изменение входных условий вызывает колоссальное непонимание задачи."""
 
 
 async def get_obligatury_text(section_code: str, year: int, subject_name: str, table: TableStandart):
@@ -86,13 +36,19 @@ async def getTablesBySection(
     return tables, manager
 
 
-async def get_promt(session: AsyncSession, section_code: int, exam_year: int, user_input: str) -> tuple[str, RequestsForSections]:
+async def get_promt(session: AsyncSession, section_code: int, exam_year: int, subject: int, exam_type: int, user_input: str) -> tuple[str, RequestsForSections]:
     tables, manager = await getTablesBySection(session=session, section_code=section_code, exam_year=exam_year)
     
-    # TODO: Добавить получение данных по разделу
+    qdrantManager = QdrantReportsStorage()
+    section_data = qdrantManager.get_section_data_by_params(
+        subject=subject,
+        exam_type=exam_type,
+        year=exam_year,
+        section_code=section_code
+    )
     
     promt = f"""Действуй как председатель предметной комиссии по учебной дисциплине "Математика профильная".
-Твоя задача - составить раздел для отчёта, называющийся "{getSectionName(section_code=section_code)}".
+Твоя задача - составить раздел для отчёта, называющийся "{section_data.name}".
 Делай выводы исходя из следующих данных:\n"""
     
     for table_number in range(len(tables)):
@@ -111,7 +67,7 @@ async def get_promt(session: AsyncSession, section_code: int, exam_year: int, us
     promt += f"""
 Используй в качестве примера выводы из отчёта за {exam_year-1} год, вот  текст:
 <example>
-{getExampleTextForPromt(subject_code=2, year=exam_year, section_code=section_code)}
+{section_data.text}
 <\example>
 """
     promt += fr"""
@@ -135,7 +91,12 @@ async def get_promt(session: AsyncSession, section_code: int, exam_year: int, us
 
 async def get_report_generate_data(session: AsyncSession, request: LLMRequest, section_code: str) -> GenerateData:
     result = GenerateData()
-    result.promt, manager = await get_promt(session=session, section_code=section_code, exam_year=request.year, user_input=request.user_input)
+    result.promt, manager = await get_promt(
+        session=session,
+        section_code=section_code,
+        exam_year=request.year,
+        user_input=request.user_input
+    )
     
     match section_code:
         case "1.7.":
