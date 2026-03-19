@@ -40,6 +40,9 @@ services:
       dockerfile: Dockerfile.web
     ports:
       - "8008:8008"
+    volumes:
+      - ./app:/app/app
+      - ./logs:/app/logs
     environment:
       - PYTHONPATH=/app
       - DB_NAME=${DB_NAME}
