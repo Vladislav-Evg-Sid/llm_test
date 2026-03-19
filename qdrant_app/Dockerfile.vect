@@ -2,13 +2,13 @@ FROM python:3.11-slim
 
 WORKDIR /qdrant_app
 
-COPY requirements.txt .
+COPY requirements.txt ./qdrant_app/requirements.txt
 RUN pip install --upgrade pip
-RUN pip install -r requirements.txt
+RUN pip install -r ./qdrant_app/requirements.txt
 
-COPY . .
+COPY . ./qdrant_app
 
 ARG VECT_QD_PORT=8008
 ENV VECT_QD_PORT=$VECT_QD_PORT
 
-CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port $VECT_QD_PORT"]
+CMD ["sh", "-c", "uvicorn qdrant_app/main:app --host 0.0.0.0 --port $VECT_QD_PORT"]
