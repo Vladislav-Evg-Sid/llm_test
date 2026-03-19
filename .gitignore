@@ -1,6 +1,6 @@
 promt.txt
 __pycache__
-app/models_ml
+*models_ml
 *.backup
 *.env
 .venv
