@@ -6,6 +6,8 @@ COPY requirements.txt .
 RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
 
+COPY . .
+
 ARG API_PORT=8000
 ENV API_PORT=$API_PORT
 
