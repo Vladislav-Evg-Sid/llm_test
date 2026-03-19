@@ -68,7 +68,10 @@ class QdrantReportsStorage:
                 vectors_config=models.VectorParams(
                     size=self.vector_size,
                     distance=models.Distance.COSINE
-                )
+                ),
+                shard_number=4,  # например
+                sharding_method=models.ShardingMethod.CUSTOM,
+                on_disk_payload=True,
             )
             
             # Создаём индексы для полей-фильтров

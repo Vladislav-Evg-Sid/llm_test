@@ -135,66 +135,74 @@ class QdrantReportsStorage:
             chunk_vector = self.model.encode(chunk)
             chunks_embeding.append(chunk_vector)
         
-        avg_embeding = np.mean(chunks_embeding)
+        avg_embeding = np.mean(chunks_embeding, axis=0)
         
         return avg_embeding.tolist()
     
     def add_report(self, report_data: QdrantReportData) -> QdrantAddReportResponse:
-        """Добавляет запись в векторную БД
-        
-        Args:
-            report_data (QdrantAddReportRequest): Модель данных, которые требуется записать
-        
-        Returns:
-            QdrantAddReportResponse: Результат добавления записи, uuid записи, текст ошибки
-        """
         try:
             report_id = str(uuid.uuid4())
-            
-            # Векторизация каждого раздела
-            sections = []
+
+            points = []
+
+            section_vectors = []
+
             for section in report_data.sections:
-                section_vector = self.__get_document_embedding(section.text)
-                sections.append({
-                    "code": section.code,
-                    "name": section.name,
-                    "text": section.text,
-                    "vector": section_vector
-                })
-            
-            # Аггрегация разделов в вектор отчёта
-            full_text = "\n".join([sec.text for sec in report_data.sections])
-            report_vector = self.__get_document_embedding(full_text)
-            
-            # Сохранение в Qdrant
+                vector = self.__get_document_embedding(section.text)
+
+                section_vectors.append(vector)
+
+                points.append(
+                    models.PointStruct(
+                        id=str(uuid.uuid4()),
+                        vector=vector,
+                        payload={
+                            "type": "section",
+                            "report_id": report_id,
+                            "section_code": section.code,
+                            "title": section.name,
+                            "text": section.text,
+                            "year": report_data.year,
+                            "subject": report_data.super_subject_id,
+                            "exam_type": report_data.exam_type,
+                        },
+                        shard_key=report_id
+                    )
+                )
+
+            report_vector = np.mean(section_vectors, axis=0).tolist()
+
+            points.append(
+                models.PointStruct(
+                    id=report_id,
+                    vector=report_vector,
+                    payload={
+                        "type": "document",
+                        "title": report_data.title,
+                        "year": report_data.year,
+                        "subject": report_data.super_subject_id,
+                        "exam_type": report_data.exam_type,
+                    },
+                    shard_key=report_id
+                )
+            )
+
             self.client.upsert(
                 collection_name=self.collection_name,
-                points=[
-                    models.PointStruct(
-                        id=report_id,
-                        vector=report_vector,
-                        payload={
-                            "year": report_data.year,
-                            "title": report_data.title,
-                            "super_subject_id": report_data.super_subject_id,
-                            "exam_type": report_data.exam_type,
-                            "sections": sections
-                        }
-                    )
-                ]
+                points=points
             )
-            
+
             return QdrantAddReportResponse(
                 success=True,
                 id=report_id,
                 messange="Отчёт успешно добавлен"
             )
-            
+
         except Exception as e:
             return QdrantAddReportResponse(
                 success=False,
                 id="",
-                messange=f"Ошибка при добавлении отчёта: {str(e)}"
+                messange=f"Ошибка: {str(e)}"
             )
 
 async def get_qdrant_report_service():
