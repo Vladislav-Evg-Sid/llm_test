@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
 
-from app.schemas.qdrant import QdrantAddReportResponse, QdrantReportData, QdrantAllReportsResponse, QdrantDeleteReportResponse, QdrantReportSectionsComparisonResponse
+from app.schemas.qdrant import QdrantAddReportResponse, QdrantReportData, QdrantTitleReport, QdrantDeleteReportResponse, QdrantReportSectionsComparisonResponse
 from app.services.qdrant_service.qdrant_service import QdrantReportsService, get_qdrant_report_service
 
 router = APIRouter(
@@ -15,8 +15,8 @@ async def qdrant_set_data(data: QdrantReportData, qd_manager: QdrantReportsServi
     return await qd_manager.add_report(data)
 
 
-@router.get("/reports", response_model=QdrantAllReportsResponse)
-async def get_all_reports(qd_manager: QdrantReportsService = Depends(get_qdrant_report_service)) -> QdrantAllReportsResponse:
+@router.get("/reports", response_model=list[QdrantTitleReport])
+async def get_all_reports(qd_manager: QdrantReportsService = Depends(get_qdrant_report_service)) -> list[QdrantTitleReport]:
     """Получение списка всех отчётов"""
     return await qd_manager.get_all_reports()
 

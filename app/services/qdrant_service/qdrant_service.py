@@ -4,7 +4,7 @@ from os import getenv
 from app.schemas.qdrant import (
     QdrantAddReportResponse,
     QdrantReportData,
-    QdrantAllReportsResponse,
+    QdrantTitleReport,
     QdrantDeleteReportResponse,
     QdrantReportSectionsComparisonResponse,
     QdrantReportDataResponse,
@@ -35,7 +35,7 @@ class QdrantReportsService:
             messange=f"{response.status_code}"
         )
 
-    async def get_all_reports(self) -> QdrantAllReportsResponse:
+    async def get_all_reports(self) -> list[QdrantTitleReport]:
         """Получение списка всех отчётов"""
         return self.storage.get_all_reports()
 

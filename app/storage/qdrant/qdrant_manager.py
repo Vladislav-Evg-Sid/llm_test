@@ -1,16 +1,15 @@
 import os
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
-import numpy as np
 
 from app.schemas.qdrant import (
     QdrantCollectionResponse,
-    QdrantAllReportsResponse,
     QdrantDeleteReportResponse,
     QdrantTitleReport,
     QdrantReportSectionsComparisonResponse,
     QdrantReportDataResponse,
     QdrantReportSectionResponse,
+    QdrantReportSection,
 )
 
 class QdrantReportsStorage:
@@ -89,6 +88,12 @@ class QdrantReportsStorage:
             
             self.client.create_payload_index(
                 collection_name=self.collection_name,
+                field_name="exam_type", 
+                field_schema="integer"
+            )
+            
+            self.client.create_payload_index(
+                collection_name=self.collection_name,
                 field_name="type",
                 field_schema="keyword"
             )
@@ -123,7 +128,7 @@ class QdrantReportsStorage:
                     messange="Error when creating a collection: " + str(e)
                 )
     
-    def get_all_reports(self) -> QdrantAllReportsResponse:
+    def get_all_reports(self) -> list[QdrantTitleReport]:
         try:
             reports = []
             next_page_offset = None
@@ -158,11 +163,11 @@ class QdrantReportsStorage:
                 if next_page_offset is None:
                     break
 
-            return QdrantAllReportsResponse(reports=reports)
+            return reports
 
         except Exception as e:
             print(f"❌ {e}")
-            return QdrantAllReportsResponse(reports=[])
+            return []
     
     def get_report(self, report_id: str) -> QdrantReportDataResponse:
         try:
@@ -320,3 +325,47 @@ class QdrantReportsStorage:
                 message=str(e),
                 section_code=section_code
             )
+    
+    def get_section_data_by_params(self, subject: int, exam_type: int, year: int, section_code: str) -> QdrantReportSection:
+        """Возвращает данные о секции отчёта по параметрам
+
+        Args:
+            subject (int): Код учебной дисциплины
+            exam_type (int): Код типа экзамена
+            year (int): Год проведения экзамена
+            section_code (str): Код раздела
+
+        Returns:
+            QdrantReportSection: Данные по разделу (код, текст, название)
+        """
+        try:
+            sections, _ = self.client.scroll(
+                collection_name=self.collection_name,
+                limit=1,
+                with_payload=True,
+                with_vectors=False,
+                scroll_filter=models.Filter(
+                    must=[
+                        models.FieldCondition(key="type", match=models.MatchValue(value="section")),
+                        models.FieldCondition(key="subject", match=models.MatchValue(value=subject)),
+                        models.FieldCondition(key="exam_type", match=models.MatchValue(value=exam_type)),
+                        models.FieldCondition(key="year", match=models.MatchValue(value=year)),
+                        models.FieldCondition(key="section_code", match=models.MatchValue(value=section_code)),
+                    ]
+                )
+            )
+
+            if not sections:
+                return None
+
+            s = sections[0]
+
+            return QdrantReportSection(
+                code=s.payload.get("section_code"),
+                text=s.payload.get("text"),
+                name=s.payload.get("title")
+            )
+
+        except Exception as e:
+            print(f"❌ get_section_data_by_params: {e}")
+            return None

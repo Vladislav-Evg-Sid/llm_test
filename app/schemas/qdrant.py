@@ -4,12 +4,6 @@ class QdrantCollectionResponse(BaseModel):
     success: bool = True
     messange: str = ""
 
-class QdrantAddReport(BaseModel):
-    year: int
-    title: str
-    super_subject_id: int 
-    exam_type: str
-
 class QdrantReportSection(BaseModel):
     code: str
     name: str
@@ -23,12 +17,6 @@ class QdrantAddReportResponse(BaseModel):
 class QdrantTitleReport(BaseModel):
     id: str
     title: str
-
-class QdrantAllReportsResponse(BaseModel):
-    reports: list[QdrantTitleReport]
-
-class QdrantDeleteReportRequest(BaseModel):
-    report_id: str
 
 class QdrantDeleteReportResponse(BaseModel):
     success: bool = True
