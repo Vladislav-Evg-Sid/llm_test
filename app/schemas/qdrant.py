@@ -15,9 +15,6 @@ class QdrantReportSection(BaseModel):
     name: str
     text: str | list[str]
 
-class QdrantReportSectionData(QdrantAddReport):
-    sections: list[QdrantReportSection]
-
 class QdrantAddReportResponse(BaseModel):
     success: bool = True
     id: str = ""
@@ -50,12 +47,9 @@ class QdrantReportSectionResponse(BaseModel):
     text: str | list[str]
     vector: list[float]
 
-class QdrantReportSectionData(QdrantAddReport):
-    sections: list[QdrantReportSectionResponse]
-
 class QdrantReportDataResponse(BaseModel):
     id: str = "x-x-x-x-x"
-    payload: list[QdrantReportSectionData] = list()
+    sections: list[QdrantReportSectionResponse] = list()
     vector: list[float] = list()
 
 class QdrantReportData(BaseModel):

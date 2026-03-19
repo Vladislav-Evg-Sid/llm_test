@@ -10,6 +10,7 @@ from app.schemas.qdrant import (
     QdrantTitleReport,
     QdrantReportSectionsComparisonResponse,
     QdrantReportDataResponse,
+    QdrantReportSectionResponse,
 )
 
 class QdrantReportsStorage:
@@ -29,13 +30,13 @@ class QdrantReportsStorage:
             cls._instance = super().__new__(cls)
         return cls._instance
     
-    def __init__(self):
+    def __init__(self) -> None:
         """Реализация инстанаса класса
         Подключаем порты
         Создаём подключения с приоритетом на HTTP
         Создаём векторизатор
         """
-        if self._initialized:
+        if type(self)._initialized:
             return
         self.host = os.getenv('QDRANT_HOST')
         self.http_port = int(os.getenv('QDRANT_PORT_HTTP'))
@@ -52,7 +53,7 @@ class QdrantReportsStorage:
         self.vector_size = 1024
         self.__init_collection()
         print("Installing completed")
-        self._initialized = True
+        type(self)._initialized = True
     
     def __init_collection(self) -> QdrantCollectionResponse:
         """Создание коллекции для хранения отчёта
@@ -79,7 +80,7 @@ class QdrantReportsStorage:
             
             self.client.create_payload_index(
                 collection_name=self.collection_name,
-                field_name="super_subject_id", 
+                field_name="subject", 
                 field_schema="integer"
             )
             return QdrantCollectionResponse(
@@ -152,16 +153,22 @@ class QdrantReportsStorage:
             points = self.client.retrieve(
                 collection_name=self.collection_name,
                 ids=[report_id],
-                with_payload=True
+                with_payload=True,
+                with_vectors=True,
             )
             
             if points and len(points) > 0:
                 point = points[0]
-                return {
-                    "id": point.id,
-                    "payload": point.payload,
-                    "vector": point.vector
-                }
+                return QdrantReportDataResponse(
+                    id=point.id,
+                    vector=point.vector,
+                    sections=[QdrantReportSectionResponse(
+                        code=p.code,
+                        name=p.name,
+                        text=p.text,
+                        vector=p.vector,
+                    ) for p in point.payload]
+                )
             else:
                 return None
                 
