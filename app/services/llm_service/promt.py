@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.storage.postgresql.request_for_section_abc import RequestsForSections
 from app.storage.postgresql.request_for_section_one import RequestsForFirstSection
 from app.storage.postgresql.request_for_section_two import RequestsForSecondSection
+from app.storage.qdrant import qdrant_manager as QdrantStorage
 from app.schemas.text_reports import TableStandart, GenerateData, LLMRequest
 
 
@@ -57,15 +58,11 @@ def getExampleTextForPromt(subject_code: int, year: int, section_code: str) -> s
 
 
 async def get_obligatury_text(section_code: str, year: int, subject_name: str, table: TableStandart):
-    print('*'*100)
-    print(table)
-    print('='*100)
     match section_code:
         case "1.7.":
             return ""
         
         case "2.5.":
-            
             return f"""По результатам выполнения заданий ЕГЭ {year} года по предмету {subject_name} имеет место изменение следующих
 показателей (см. Таблицу 2-6):
 - среднего балла («+6,6» с {year-2} годом, «+7,2» с {year-1} годом);
@@ -91,6 +88,8 @@ async def getTablesBySection(
 
 async def get_promt(session: AsyncSession, section_code: int, exam_year: int, user_input: str) -> tuple[str, RequestsForSections]:
     tables, manager = await getTablesBySection(session=session, section_code=section_code, exam_year=exam_year)
+    
+    # TODO: Добавить получение данных по разделу
     
     promt = f"""Действуй как председатель предметной комиссии по учебной дисциплине "Математика профильная".
 Твоя задача - составить раздел для отчёта, называющийся "{getSectionName(section_code=section_code)}".
