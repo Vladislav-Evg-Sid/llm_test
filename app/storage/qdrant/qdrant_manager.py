@@ -83,6 +83,25 @@ class QdrantReportsStorage:
                 field_name="subject", 
                 field_schema="integer"
             )
+            
+            self.client.create_payload_index(
+                collection_name=self.collection_name,
+                field_name="type",
+                field_schema="keyword"
+            )
+
+            self.client.create_payload_index(
+                collection_name=self.collection_name,
+                field_name="report_id",
+                field_schema="keyword"
+            )
+
+            self.client.create_payload_index(
+                collection_name=self.collection_name,
+                field_name="section_code",
+                field_schema="keyword"
+            )
+            
             return QdrantCollectionResponse(
                 success=True,
                 messange="Collection created"
@@ -102,25 +121,29 @@ class QdrantReportsStorage:
                 )
     
     def get_all_reports(self) -> QdrantAllReportsResponse:
-        """Возвращает список всех отчётов (id + title)"""
         try:
             reports = []
             next_page_offset = None
-            
-            # Обрабатываем пагинацию через scroll
             while True:
-                scroll_result = self.client.scroll(
+                points, next_page_offset = self.client.scroll(
                     collection_name=self.collection_name,
-                    limit=100,  # Количество точек за один запрос
+                    limit=100,
                     offset=next_page_offset,
                     with_payload=True,
-                    with_vectors=False  # Нам не нужны векторы для списка
+                    with_vectors=False,
+                    scroll_filter=models.Filter(
+                        must=[
+                            models.FieldCondition(
+                                key="type",
+                                match=models.MatchValue(value="document")
+                            )
+                        ]
+                    )
                 )
-                
-                # points - список точек, next_page_offset - смещение для следующей страницы
-                points, next_page_offset = scroll_result
-                
-                # Добавляем точки в результат
+
+                if not points:
+                    break
+
                 for point in points:
                     reports.append(
                         QdrantTitleReport(
@@ -128,202 +151,169 @@ class QdrantReportsStorage:
                             title=point.payload.get("title", "Без названия")
                         )
                     )
-                
-                # Если next_page_offset is None - значит это последняя страница
+
                 if next_page_offset is None:
                     break
-            
-            print(f"📊 Найдено отчётов: {len(reports)}")
+
             return QdrantAllReportsResponse(reports=reports)
-            
+
         except Exception as e:
-            print(f"❌ Ошибка при получении списка отчётов: {e}")
+            print(f"❌ {e}")
             return QdrantAllReportsResponse(reports=[])
     
     def get_report(self, report_id: str) -> QdrantReportDataResponse:
-        """Возвращает отчёт по id
-        
-        Args:
-            report_id (str): uuid искомого отчёта
-            
-        Returns:
-            QdrantReportDataResponse: Вся информация об отчёте
-        """
         try:
-            points = self.client.retrieve(
+            # 1. Получаем документ
+            doc = self.client.retrieve(
                 collection_name=self.collection_name,
                 ids=[report_id],
                 with_payload=True,
-                with_vectors=True,
+                with_vectors=True
             )
-            
-            if points and len(points) > 0:
-                point = points[0]
-                return QdrantReportDataResponse(
-                    id=point.id,
-                    vector=point.vector,
-                    sections=[QdrantReportSectionResponse(
-                        code=p.code,
-                        name=p.name,
-                        text=p.text,
-                        vector=p.vector,
-                    ) for p in point.payload]
-                )
-            else:
+
+            if not doc:
                 return None
-                
+
+            doc = doc[0]
+
+            # 2. Получаем секции
+            sections, _ = self.client.scroll(
+                collection_name=self.collection_name,
+                limit=1000,
+                with_payload=True,
+                with_vectors=True,
+                scroll_filter=models.Filter(
+                    must=[
+                        models.FieldCondition(
+                            key="type",
+                            match=models.MatchValue(value="section")
+                        ),
+                        models.FieldCondition(
+                            key="report_id",
+                            match=models.MatchValue(value=report_id)
+                        )
+                    ]
+                )
+            )
+
+            return QdrantReportDataResponse(
+                id=doc.id,
+                vector=doc.vector,
+                sections=[
+                    QdrantReportSectionResponse(
+                        code=s.payload.get("section_code"),
+                        name=s.payload.get("title"),
+                        text=s.payload.get("text"),
+                        vector=s.vector
+                    )
+                    for s in sections
+                ]
+            )
+
         except Exception as e:
-            print(f"Ошибка при получении отчёта: {e}")
+            print(f"❌ get_report: {e}")
             return None
     
     def delete_report(self, report_id: str) -> QdrantDeleteReportResponse:
-        """Удаляет отчёт по ID
-        
-        Args:
-            report_id: UUID отчёта для удаления
-            
-        Returns:
-            QdrantDeleteReportResponse: Результат операции
-        """
         try:
-            # Сначала проверим, существует ли отчёт
-            existing_report = self.get_report(report_id)
-            if not existing_report:
-                return QdrantDeleteReportResponse(
-                    success=False,
-                    message=f"Отчёт с ID {report_id} не найден"
-                )
-            
-            # Удаляем отчёт
+            # удаляем документ
             self.client.delete(
                 collection_name=self.collection_name,
-                points_selector=models.PointIdsList(
-                    points=[report_id]
+                points_selector=models.PointIdsList(points=[report_id])
+            )
+
+            # удаляем все секции
+            self.client.delete(
+                collection_name=self.collection_name,
+                points_selector=models.FilterSelector(
+                    filter=models.Filter(
+                        must=[
+                            models.FieldCondition(
+                                key="report_id",
+                                match=models.MatchValue(value=report_id)
+                            )
+                        ]
+                    )
                 )
             )
-            
-            print(f"✅ Отчёт {report_id} успешно удалён")
+
             return QdrantDeleteReportResponse(
                 success=True,
-                message=f"Отчёт {report_id} успешно удалён"
+                message="Удалено"
             )
-            
+
         except Exception as e:
-            print(f"❌ Ошибка при удалении отчёта {report_id}: {e}")
             return QdrantDeleteReportResponse(
                 success=False,
-                message=f"Ошибка при удалении отчёта: {str(e)}"
+                message=str(e)
             )
     
-    def compare_single_section_pair(self, report1_id: str, report2_id: str, section_code: str) -> QdrantReportSectionsComparisonResponse:
-        """
-        Сравнивает одну пару секций (с одинаковым кодом) в двух отчётах.
-        
-        Args:
-            report1_id: UUID первого отчёта
-            report2_id: UUID второго отчёта  
-            section_code: Код секции для сравнения (должен быть в обоих отчётах)
-            
-        Returns:
-            QdrantReportSectionsComparison: Результат сравнения с косинусным расстоянием
-        """
-        # 1. Проверка наличия отчётов в базе
-        report1 = self.get_report(report1_id)
-        if not report1:
-            return QdrantReportSectionsComparisonResponse(
-                success=False,
-                message=f"Отчёт 1 с ID {report1_id} не найден",
-                section_code=section_code
+    def compare_single_section_pair(
+        self,
+        report1_id: str,
+        report2_id: str,
+        section_code: str
+    ) -> QdrantReportSectionsComparisonResponse:
+
+        try:
+            # 1. Найти секцию из первого отчёта
+            section1, _ = self.client.scroll(
+                collection_name=self.collection_name,
+                limit=1,
+                with_vectors=True,
+                with_payload=True,
+                scroll_filter=models.Filter(
+                    must=[
+                        models.FieldCondition(key="type", match=models.MatchValue(value="section")),
+                        models.FieldCondition(key="report_id", match=models.MatchValue(value=report1_id)),
+                        models.FieldCondition(key="section_code", match=models.MatchValue(value=section_code)),
+                    ]
+                )
             )
-        
-        report2 = self.get_report(report2_id)
-        if not report2:
-            return QdrantReportSectionsComparisonResponse(
-                success=False,
-                message=f"Отчёт 2 с ID {report2_id} не найден",
-                section_code=section_code
+
+            if not section1:
+                return QdrantReportSectionsComparisonResponse(
+                    success=False,
+                    message="Секция не найдена в отчёте 1",
+                    section_code=section_code
+                )
+
+            section1 = section1[0]
+
+            # 2. Ищем такую же секцию во втором отчёте через search
+            results = self.client.search(
+                collection_name=self.collection_name,
+                query_vector=section1.vector,
+                limit=1,
+                query_filter=models.Filter(
+                    must=[
+                        models.FieldCondition(key="type", match=models.MatchValue(value="section")),
+                        models.FieldCondition(key="report_id", match=models.MatchValue(value=report2_id)),
+                        models.FieldCondition(key="section_code", match=models.MatchValue(value=section_code)),
+                    ]
+                )
             )
-        
-        # 2. Проверка наличия секций в отчётах
-        report1_sections = report1["payload"].get("sections", [])
-        report2_sections = report2["payload"].get("sections", [])
-        
-        # Находим нужную секцию в первом отчёте
-        section1 = None
-        for sec in report1_sections:
-            if sec.get("code") == section_code:
-                section1 = sec
-                break
-        
-        if not section1:
-            print('error')
-            print("Секция с кодом '{section_code}' не найдена в отчёте 1 ({report1_id})")
+
+            if not results:
+                return QdrantReportSectionsComparisonResponse(
+                    success=False,
+                    message="Секция не найдена во втором отчёте",
+                    section_code=section_code
+                )
+
+            match = results[0]
+
             return QdrantReportSectionsComparisonResponse(
-                success=False,
-                message=f"Секция с кодом '{section_code}' не найдена в отчёте 1 ({report1_id})",
-                section_code=section_code
-            )
-        
-        # Находим нужную секцию во втором отчёте
-        section2 = None
-        for sec in report2_sections:
-            if sec.get("code") == section_code:
-                section2 = sec
-                break
-        
-        if not section2:
-            return QdrantReportSectionsComparisonResponse(
-                success=False,
-                message=f"Секция с кодом '{section_code}' не найдена в отчёте 2 ({report2_id})",
-                section_code=section_code
-            )
-        
-        # 3. Проверка наличия векторов у секций
-        vector1 = section1.get("vector", [])
-        vector2 = section2.get("vector", [])
-        
-        if not vector1:
-            return QdrantReportSectionsComparisonResponse(
-                success=False,
-                message=f"У секции '{section_code}' в отчёте 1 отсутствует вектор",
+                success=True,
+                message="OK",
                 section_code=section_code,
-                section_title=section1.get("title", section_code)
+                section_title=section1.payload.get("title"),
+                cosine_similarity=match.score
             )
-        
-        if not vector2:
+
+        except Exception as e:
             return QdrantReportSectionsComparisonResponse(
                 success=False,
-                message=f"У секции '{section_code}' в отчёте 2 отсутствует вектор",
-                section_code=section_code,
-                section_title=section2.get("title", section_code)
+                message=str(e),
+                section_code=section_code
             )
-        
-        # 4. Вычисление косинусного расстояния
-        # Косинусное расстояние = 1 - косинусная схожесть
-        # Косинусная схожесть = (A·B) / (||A|| * ||B||)
-        
-        vec1_np = np.array(vector1)
-        vec2_np = np.array(vector2)
-        
-        # Вычисляем нормы векторов
-        norm1 = np.linalg.norm(vec1_np)
-        norm2 = np.linalg.norm(vec2_np)
-        
-        if norm1 == 0 or norm2 == 0:
-            return QdrantReportSectionsComparisonResponse(
-                success=False,
-                message="Один из векторов имеет нулевую длину",
-                section_code=section_code,
-                section_title=section1.get("title", section_code)
-            )
-        
-        # Вычисляем косинусную схожесть
-        cosine_similarity = np.dot(vec1_np, vec2_np) / (norm1 * norm2)
-        
-        return QdrantReportSectionsComparisonResponse(
-            success=True,
-            message=f"Секция '{section_code}' успешно сравнена",
-            section_code=section_code,
-            section_title=section1.get("title", section_code),
-            cosine_similarity=cosine_similarity
-        )
