@@ -29,7 +29,7 @@ class LLMGenerateRequest(BaseModel):
     prompt: str
 
 
-class LLMGenerateResponce(BaseModel):
+class LLMGenerateResponse(BaseModel):
     success: bool
     text: str
     time: float = 0

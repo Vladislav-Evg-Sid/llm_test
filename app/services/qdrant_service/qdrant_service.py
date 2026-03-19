@@ -6,8 +6,8 @@ from app.schemas.qdrant import (
     QdrantReportData,
     QdrantAllReportsResponse,
     QdrantDeleteReportResponse,
-    QdrantReportSectionsComparisonResponce,
-    QdrantReportDataResponce,
+    QdrantReportSectionsComparisonResponse,
+    QdrantReportDataResponse,
 )
 from app.storage.qdrant.qdrant_manager import QdrantReportsStorage
 
@@ -24,22 +24,22 @@ class QdrantReportsService:
                 success=False,
                 messange="Vectoriser service is unavailable"
             )
-        responce = requests.post(
+        response = requests.post(
             f'http://vectoriser:{self.vectoriser_port}/vect_qdrant/add',
             json=data
         )
-        if responce.ok:
-            return QdrantAddReportResponse(**responce.json)
+        if response.ok:
+            return QdrantAddReportResponse(**response.json)
         return QdrantAddReportResponse(
             success=False,
-            messange=f"{responce.status_code}"
+            messange=f"{response.status_code}"
         )
 
     async def get_all_reports(self) -> QdrantAllReportsResponse:
         """Получение списка всех отчётов"""
         return self.storage.get_all_reports()
 
-    async def get_report_by_id(self, report_id: str) -> QdrantReportDataResponce:
+    async def get_report_by_id(self, report_id: str) -> QdrantReportDataResponse:
         """Получение полных данных отчёта по ID"""
         return self.storage.get_report(report_id)
 
@@ -47,7 +47,7 @@ class QdrantReportsService:
         """Удаление отчёта по ID"""
         return self.storage.delete_report(report_id)
 
-    async def get_distance(self, report1_id: str, report2_id: str, section_code: str) -> QdrantReportSectionsComparisonResponce:
+    async def get_distance(self, report1_id: str, report2_id: str, section_code: str) -> QdrantReportSectionsComparisonResponse:
         """Получение векторного расстояния между разделами отчётов"""
         return self.storage.compare_single_section_pair(report1_id, report2_id, section_code)
 

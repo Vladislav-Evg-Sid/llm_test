@@ -86,7 +86,6 @@ class QdrantReportsStorage:
                 else:
                     local_dir = path_to_model + self.vect_model_name.replace('/', '_')
                 self.model = SentenceTransformer(local_dir, device='cpu')
-                self.vector_size = 1024
                 self.tokenizer = None
                 self.chunk_size = None
         print("Installing completed")

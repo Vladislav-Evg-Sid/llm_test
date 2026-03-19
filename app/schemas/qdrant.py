@@ -37,23 +37,23 @@ class QdrantDeleteReportResponse(BaseModel):
     success: bool = True
     message: str = ""
 
-class QdrantReportSectionsComparisonResponce(BaseModel):
+class QdrantReportSectionsComparisonResponse(BaseModel):
     success: bool = True
     messange: str = ""
     section_code: str = ""
     section_title: str = ""
-    cosine_distance: float = 0.0
+    cosine_similarity: float = 0.0
 
-class QdrantReportSectionResponce(BaseModel):
+class QdrantReportSectionResponse(BaseModel):
     code: str
     name: str
     text: str | list[str]
     vector: list[float]
 
 class QdrantReportSectionData(QdrantAddReport):
-    sections: list[QdrantReportSectionResponce]
+    sections: list[QdrantReportSectionResponse]
 
-class QdrantReportDataResponce(BaseModel):
+class QdrantReportDataResponse(BaseModel):
     id: str = "x-x-x-x-x"
     payload: list[QdrantReportSectionData] = list()
     vector: list[float] = list()

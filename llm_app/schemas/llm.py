@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 
 
-class LLMGenerateResponce(BaseModel):
+class LLMGenerateResponse(BaseModel):
     success: bool
     text: str
     time: float = 0

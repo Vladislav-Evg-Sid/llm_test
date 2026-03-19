@@ -1,9 +1,8 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from os import getenv
 import requests
-from requests import Response
 
-from app.schemas.text_reports import LLMResponse, LLMRequest, LLMGenerateRequest, LLMGenerateResponce
+from app.schemas.text_reports import LLMResponse, LLMRequest, LLMGenerateRequest, LLMGenerateResponse
 from app.services.llm_service import promt as promtService
 
 
@@ -19,24 +18,24 @@ async def get_generated_text_on_subject_by_section(session: AsyncSession, reques
     result = LLMResponse()
     try:
         # Запускаем генерацию в отдельном потоке
-        responce = requests.post(
+        response = requests.post(
             f'http://llm:{LLM_PORT}/text_generate/generate',
             json=LLMGenerateRequest(
                 prompt=data.promt
             )
         )
-        if responce.ok:
-            responce_data = LLMGenerateResponce(**responce.json())
-            if responce_data.success:
-                llm_text = responce_data.text
-                result.time = responce_data.time
+        if response.ok:
+            response_data = LLMGenerateResponse(**response.json())
+            if response_data.success:
+                llm_text = response_data.text
+                result.time = response_data.time
             else:
                 return LLMResponse(
-                    text="Ошибка при общании к llm: " + responce_data.text
+                    text="Ошибка при общании к llm: " + response_data.text
                 )
         else:
             return LLMResponse(
-                text="Ошибка обращения к сервису LLM: " + responce.status_code
+                text="Ошибка обращения к сервису LLM: " + response.status_code
             )
     except Exception as e:
         result.text = f"Ошибка генерации: {str(e)}"

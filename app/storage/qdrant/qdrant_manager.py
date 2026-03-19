@@ -8,8 +8,8 @@ from app.schemas.qdrant import (
     QdrantAllReportsResponse,
     QdrantDeleteReportResponse,
     QdrantTitleReport,
-    QdrantReportSectionsComparisonResponce,
-    QdrantReportDataResponce,
+    QdrantReportSectionsComparisonResponse,
+    QdrantReportDataResponse,
 )
 
 class QdrantReportsStorage:
@@ -49,6 +49,7 @@ class QdrantReportsStorage:
             prefer_grpc=False
         )
         self.collection_name = "reports"
+        self.vector_size = 1024
         self.__init_collection()
         print("Installing completed")
         self._initialized = True
@@ -138,14 +139,14 @@ class QdrantReportsStorage:
             print(f"❌ Ошибка при получении списка отчётов: {e}")
             return QdrantAllReportsResponse(reports=[])
     
-    def get_report(self, report_id: str) -> QdrantReportDataResponce:
+    def get_report(self, report_id: str) -> QdrantReportDataResponse:
         """Возвращает отчёт по id
         
         Args:
             report_id (str): uuid искомого отчёта
             
         Returns:
-            QdrantReportDataResponce: Вся информация об отчёте
+            QdrantReportDataResponse: Вся информация об отчёте
         """
         try:
             points = self.client.retrieve(
@@ -207,7 +208,7 @@ class QdrantReportsStorage:
                 message=f"Ошибка при удалении отчёта: {str(e)}"
             )
     
-    def compare_single_section_pair(self, report1_id: str, report2_id: str, section_code: str) -> QdrantReportSectionsComparisonResponce:
+    def compare_single_section_pair(self, report1_id: str, report2_id: str, section_code: str) -> QdrantReportSectionsComparisonResponse:
         """
         Сравнивает одну пару секций (с одинаковым кодом) в двух отчётах.
         
@@ -222,7 +223,7 @@ class QdrantReportsStorage:
         # 1. Проверка наличия отчётов в базе
         report1 = self.get_report(report1_id)
         if not report1:
-            return QdrantReportSectionsComparisonResponce(
+            return QdrantReportSectionsComparisonResponse(
                 success=False,
                 message=f"Отчёт 1 с ID {report1_id} не найден",
                 section_code=section_code
@@ -230,7 +231,7 @@ class QdrantReportsStorage:
         
         report2 = self.get_report(report2_id)
         if not report2:
-            return QdrantReportSectionsComparisonResponce(
+            return QdrantReportSectionsComparisonResponse(
                 success=False,
                 message=f"Отчёт 2 с ID {report2_id} не найден",
                 section_code=section_code
@@ -250,7 +251,7 @@ class QdrantReportsStorage:
         if not section1:
             print('error')
             print("Секция с кодом '{section_code}' не найдена в отчёте 1 ({report1_id})")
-            return QdrantReportSectionsComparisonResponce(
+            return QdrantReportSectionsComparisonResponse(
                 success=False,
                 message=f"Секция с кодом '{section_code}' не найдена в отчёте 1 ({report1_id})",
                 section_code=section_code
@@ -264,7 +265,7 @@ class QdrantReportsStorage:
                 break
         
         if not section2:
-            return QdrantReportSectionsComparisonResponce(
+            return QdrantReportSectionsComparisonResponse(
                 success=False,
                 message=f"Секция с кодом '{section_code}' не найдена в отчёте 2 ({report2_id})",
                 section_code=section_code
@@ -275,7 +276,7 @@ class QdrantReportsStorage:
         vector2 = section2.get("vector", [])
         
         if not vector1:
-            return QdrantReportSectionsComparisonResponce(
+            return QdrantReportSectionsComparisonResponse(
                 success=False,
                 message=f"У секции '{section_code}' в отчёте 1 отсутствует вектор",
                 section_code=section_code,
@@ -283,7 +284,7 @@ class QdrantReportsStorage:
             )
         
         if not vector2:
-            return QdrantReportSectionsComparisonResponce(
+            return QdrantReportSectionsComparisonResponse(
                 success=False,
                 message=f"У секции '{section_code}' в отчёте 2 отсутствует вектор",
                 section_code=section_code,
@@ -302,7 +303,7 @@ class QdrantReportsStorage:
         norm2 = np.linalg.norm(vec2_np)
         
         if norm1 == 0 or norm2 == 0:
-            return QdrantReportSectionsComparisonResponce(
+            return QdrantReportSectionsComparisonResponse(
                 success=False,
                 message="Один из векторов имеет нулевую длину",
                 section_code=section_code,
@@ -312,26 +313,10 @@ class QdrantReportsStorage:
         # Вычисляем косинусную схожесть
         cosine_similarity = np.dot(vec1_np, vec2_np) / (norm1 * norm2)
         
-        # Преобразуем в расстояние: 1 - similarity
-        # Диапазон: 0 (идентичные) - 2 (противоположные)
-        cosine_distance = 1.0 - cosine_similarity
-        
-        return QdrantReportSectionsComparisonResponce(
+        return QdrantReportSectionsComparisonResponse(
             success=True,
             message=f"Секция '{section_code}' успешно сравнена",
             section_code=section_code,
             section_title=section1.get("title", section_code),
-            cosine_distance=cosine_similarity
+            cosine_similarity=cosine_similarity
         )
-    
-    def get_report_by_parametrs(self, super_subject_id: int, year: int): # TODO Тоже должен возвращать модель
-        try:
-            points = self.client.retrieve(
-                collection_name=self.collection_name,
-                year=year,
-                super_subject_id=super_subject_id,
-                with_payload=True
-            )
-            return points[0] if points else None
-        except:
-            return None

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
 
-from app.schemas.qdrant import QdrantAddReportResponse, QdrantReportSectionData, QdrantAllReportsResponse, QdrantDeleteReportResponse, QdrantReportSectionsComparisonResponce
+from app.schemas.qdrant import QdrantAddReportResponse, QdrantReportSectionData, QdrantAllReportsResponse, QdrantDeleteReportResponse, QdrantReportSectionsComparisonResponse
 from app.services.qdrant_service.qdrant_service import QdrantReportsService, get_qdrant_report_service
 
 router = APIRouter(
@@ -37,5 +37,5 @@ async def delete_report(report_id: str, qd_manager: QdrantReportsService = Depen
 
 
 @router.post("/reports/distance")
-async def get_distance(report1_id: str, report2_id: str, section_code: str, qd_manager: QdrantReportsService = Depends(get_qdrant_report_service)) -> QdrantReportSectionsComparisonResponce:
+async def get_distance(report1_id: str, report2_id: str, section_code: str, qd_manager: QdrantReportsService = Depends(get_qdrant_report_service)) -> QdrantReportSectionsComparisonResponse:
     return await qd_manager.get_distance(report1_id, report2_id, section_code)

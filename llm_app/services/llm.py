@@ -4,7 +4,7 @@ import torch
 from time import time as time_now
 from pathlib import Path
 
-from llm_app.schemas.llm import LLMGenerateResponce
+from llm_app.schemas.llm import LLMGenerateResponse
 
 
 def check_folder(folder_path: str) -> bool:
@@ -83,7 +83,7 @@ class LLMService:
         print("✅ Модель успешно загружена и готова к работе!")
         LLMService._initialized = True
     
-    def generate_response(self, promt) -> LLMGenerateResponce:
+    def generate_response(self, promt) -> LLMGenerateResponse:
         try:
             start_time = time_now()
             messages = [
@@ -108,14 +108,14 @@ class LLMService:
             
             end_time = time_now()
             
-            return LLMGenerateResponce(
+            return LLMGenerateResponse(
                 success=True,
                 text=response,
                 time=end_time-start_time
             )
             
         except Exception as e:
-            return LLMGenerateResponce(
+            return LLMGenerateResponse(
                 success=False,
                 text=f"⚠️ Ошибка при генерации: {str(e)}",
                 time=0
