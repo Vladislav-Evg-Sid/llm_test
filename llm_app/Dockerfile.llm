@@ -12,4 +12,4 @@ COPY . ./llm_app
 ARG LLM_PORT=8011
 ENV LLM_PORT=$LLM_PORT
 
-CMD ["sh", "-c", "uvicorn llm_app.main:app --host 0.0.0.0 --port $LLM_PORT"]
+CMD ["sh", "-c", "uvicorn llm_app.main:llm_app --host 0.0.0.0 --port $LLM_PORT"]
