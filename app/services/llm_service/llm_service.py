@@ -52,3 +52,30 @@ async def get_generated_text_on_subject_by_section(session: AsyncSession, reques
     with open ('result.txt', 'w') as f:
         f.write(result.text)
     return result
+
+async def get_text_by_reques(request: str) -> LLMResponse:
+    result = LLMResponse()
+    try:
+        # Запускаем генерацию в отдельном потоке
+        response = requests.post(
+            f'http://llm:{LLM_PORT}/text_generate/generate',
+            json=LLMGenerateRequest(
+                prompt=request
+            )
+        )
+        if response.ok:
+            response_data = LLMGenerateResponse(**response.json())
+            if response_data.success:
+                result.time = response_data.time
+                result.text = response_data.text
+            else:
+                return LLMResponse(
+                    text="Ошибка при общании к llm: " + response_data.text
+                )
+        else:
+            return LLMResponse(
+                text="Ошибка обращения к сервису LLM: " + response.status_code
+            )
+    except Exception as e:
+        result.text = f"Ошибка генерации: {str(e)}"
+    return result

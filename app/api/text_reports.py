@@ -44,3 +44,7 @@ def cleanup_buffer(buffer: io.BytesIO):
         buffer.close()
     except Exception as e:
         print(f"Error cleaning buffer: {e}")
+
+@router.post("/generate")
+async def generate_text(request: str) -> LLMResponse:
+    return await llmService.get_text_by_reques(request)
