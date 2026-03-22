@@ -33,21 +33,27 @@ services:
       - QDRANT__SERVICE__HTTP_PORT=${QDRANT_PORT_HTTP}
       - QDRANT__SERVICE__GRPC_PORT=${QDRANT_PORT_GRPC}
 
-  llm:
-    container_name: llm-generate
+  web:
+    container_name: llm-web
     build:
       context: ./app
-      dockerfile: Dockerfile.llm
-    stdin_open: true
-    tty: true
+      dockerfile: Dockerfile.web
     ports:
       - "8008:8008"
     volumes:
-      - ./app:/app
-      - ./.env:/app/.env
+      - ./app:/app/app
       - ./logs:/app/logs
     environment:
       - PYTHONPATH=/app
+      - DB_NAME=${DB_NAME}
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_PORT=${DB_PORT}
+      - QDRANT_HOST=${QDRANT_HOST}
+      - QDRANT_PORT_HTTP=${QDRANT_PORT_HTTP}
+      - QDRANT_PORT_GRPC=${QDRANT_PORT_GRPC}
+      - API_PORT=${API_PORT}
     # depends_on:
       # db:
         # condition: service_healthy

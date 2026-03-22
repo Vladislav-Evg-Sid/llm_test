@@ -1,5 +1,6 @@
-*.txt
+promt.txt
 __pycache__
-models
+*models_ml
 *.backup
 *.env
+.venv

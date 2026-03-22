@@ -1,0 +1,91 @@
+services:
+  db:
+    build:
+      context: ./db
+      dockerfile: Dockerfile.db
+    container_name: llm-db
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5433:${DB_PORT}"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: llm-qdrant
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "${QDRANT_PORT_HTTP}:6333"
+      - "${QDRANT_PORT_GRPC}:6334"
+    volumes:
+      - qdrant-data:/qdrant/storage
+    environment:
+      - QDRANT__SERVICE__HTTP_PORT=${QDRANT_PORT_HTTP}
+      - QDRANT__SERVICE__GRPC_PORT=${QDRANT_PORT_GRPC}
+
+  web:
+    container_name: llm-web
+    build:
+      context: ./app
+      dockerfile: Dockerfile.web
+    ports:
+      - "8008:8008"
+    volumes:
+      - ./app:/app/app
+      - ./logs:/app/logs
+    environment:
+      - PYTHONPATH=/app
+      - DB_NAME=${DB_NAME}
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_PORT=${DB_PORT}
+      - QDRANT_HOST=${QDRANT_HOST}
+      - QDRANT_PORT_HTTP=${QDRANT_PORT_HTTP}
+      - QDRANT_PORT_GRPC=${QDRANT_PORT_GRPC}
+      - VECT_QD_PORT=${VECT_QD_PORT}
+      - LLM_PORT=${LLM_PORT}
+      - API_PORT=${API_PORT}
+    depends_on:
+      - db
+      - qdrant
+
+  vectoriser:
+    container_name: llm-qd-vectoriser
+    build:
+      context: ./qdrant_app
+      dockerfile: Dockerfile.vect
+    ports:
+      - "${VECT_QD_PORT}:${VECT_QD_PORT}"
+    environment:
+      - PYTHONPATH=/qdrant_app
+      - QDRANT_HOST=${QDRANT_HOST}
+      - QDRANT_PORT_HTTP=${QDRANT_PORT_HTTP}
+      - QDRANT_PORT_GRPC=${QDRANT_PORT_GRPC}
+      - VECT_MODEL=${VECT_MODEL}
+    depends_on:
+      - web
+
+  llm:
+    container_name: llm-llmgenerator
+    build:
+      context: ./llm_app
+      dockerfile: Dockerfile.llm
+    ports:
+      - "${LLM_PORT}:${LLM_PORT}"
+    depends_on:
+      - web
+
+volumes:
+  db-data:
+  qdrant-data:
