@@ -20,9 +20,7 @@ async def get_generated_text_on_subject_by_section(session: AsyncSession, reques
         # Запускаем генерацию в отдельном потоке
         response = requests.post(
             f'http://llm:{LLM_PORT}/text_generate/generate',
-            json=LLMGenerateRequest(
-                prompt=data.promt
-            )
+            json=LLMGenerateRequest(prompt=data.promt).dict()
         )
         if response.ok:
             response_data = LLMGenerateResponse(**response.json())
@@ -35,7 +33,7 @@ async def get_generated_text_on_subject_by_section(session: AsyncSession, reques
                 )
         else:
             return LLMResponse(
-                text="Ошибка обращения к сервису LLM: " + response.status_code
+                text="Ошибка обращения к сервису LLM: " + str(response.status_code)
             )
     except Exception as e:
         result.text = f"Ошибка генерации: {str(e)}"
@@ -59,9 +57,7 @@ async def get_text_by_reques(request: str) -> LLMResponse:
         # Запускаем генерацию в отдельном потоке
         response = requests.post(
             f'http://llm:{LLM_PORT}/text_generate/generate',
-            json=LLMGenerateRequest(
-                prompt=request
-            )
+            json=LLMGenerateRequest(prompt=request).dict()
         )
         if response.ok:
             response_data = LLMGenerateResponse(**response.json())
@@ -74,7 +70,7 @@ async def get_text_by_reques(request: str) -> LLMResponse:
                 )
         else:
             return LLMResponse(
-                text="Ошибка обращения к сервису LLM: " + response.status_code
+                text="Ошибка обращения к сервису LLM: " + str(response.status_code)
             )
     except Exception as e:
         result.text = f"Ошибка генерации: {str(e)}"
