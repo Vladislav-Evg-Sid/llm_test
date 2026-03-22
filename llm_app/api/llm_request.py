@@ -11,4 +11,4 @@ router = APIRouter(
 @router.post("/generate", response_model=LLMGenerateResponse)
 async def qdrant_set_data(data: LLMGenerateRequest, llm: LLMService = Depends(get_llm_service)) -> LLMGenerateResponse:
     """Добавление отчёта в векторную БД"""
-    return await llm.generate_response(data.prompt)
+    return llm.generate_response(data.prompt)
