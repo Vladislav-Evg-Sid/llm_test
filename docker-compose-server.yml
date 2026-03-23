@@ -73,7 +73,6 @@ services:
       - QDRANT_PORT_HTTP=${QDRANT_PORT_HTTP}
       - QDRANT_PORT_GRPC=${QDRANT_PORT_GRPC}
       - VECT_MODEL=${VECT_MODEL}
-      - VECT_QD_PORT=${VECT_QD_PORT}
     depends_on:
       - web
 
@@ -84,6 +83,8 @@ services:
       dockerfile: Dockerfile.llm
     ports:
       - "${LLM_PORT}:${LLM_PORT}"
+    environment:
+      - PYTHONPATH=/qdrant_app
     depends_on:
       - web
 
