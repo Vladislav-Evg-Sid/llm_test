@@ -10,4 +10,4 @@ app.include_router(add_report.router)
 @app.on_event("startup")
 async def startup_event():
     """Инициализируем модель при запуске"""
-    return QdrantReportsStorage()
+    temp = QdrantReportsStorage()
