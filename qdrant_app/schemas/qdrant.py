@@ -9,11 +9,11 @@ class QdrantAddReportResponse(BaseModel):
 class QdrantReportSectionData(BaseModel):
     code: str
     name: str
-    text: str | list[str]
+    text: str
 
 class QdrantReportData(BaseModel):
     year: int
     title: str
-    super_subject_id: int 
-    exam_type: str
+    subject: int 
+    exam_type: int
     sections: list[QdrantReportSectionData]

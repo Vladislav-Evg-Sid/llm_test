@@ -26,7 +26,7 @@ class QdrantReportsService:
             )
         response = requests.post(
             f'http://vectoriser:{self.vectoriser_port}/vect_qdrant/add',
-            json=data
+            json=data.dict()
         )
         if response.ok:
             return QdrantAddReportResponse(**response.json)

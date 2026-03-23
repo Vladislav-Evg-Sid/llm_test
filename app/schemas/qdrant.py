@@ -7,7 +7,7 @@ class QdrantCollectionResponse(BaseModel):
 class QdrantReportSection(BaseModel):
     code: str
     name: str
-    text: str | list[str]
+    text: str
 
 class QdrantAddReportResponse(BaseModel):
     success: bool = True
@@ -32,7 +32,7 @@ class QdrantReportSectionsComparisonResponse(BaseModel):
 class QdrantReportSectionResponse(BaseModel):
     code: str
     name: str
-    text: str | list[str]
+    text: str
     vector: list[float]
 
 class QdrantReportDataResponse(BaseModel):
@@ -43,6 +43,6 @@ class QdrantReportDataResponse(BaseModel):
 class QdrantReportData(BaseModel):
     year: int
     title: str
-    super_subject_id: int 
-    exam_type: str
+    subject: int 
+    exam_type: int
     sections: list[QdrantReportSection]
