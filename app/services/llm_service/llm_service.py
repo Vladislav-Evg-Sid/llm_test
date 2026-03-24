@@ -98,7 +98,7 @@ async def get_all_data_by_section() -> list[LLMResponse]:
 <\example>
 """
         try:
-            with open(f"tests/user_input/{section_code}.txt", 'r', encoding='utf-8') as f:
+            with open(f"app/services/llm_service/texts/user_input/{section_code}.txt", 'r', encoding='utf-8') as f:
                 user_input = f.read()
                 promt += fr"""
 Также можешь использовать следующую информацию, предоставленную пользователем:
@@ -126,7 +126,7 @@ async def get_all_data_by_section() -> list[LLMResponse]:
                 llm_text = response_data.text
                 time = response_data.time
                 result.append(LLMResponse(text=llm_text, time=time))
-                with open(f"tests/llm_output/{section_code}.txt", 'w', encoding='utf-8') as f:
+                with open(f"app/services/llm_service/texts/llm_output/{section_code}.txt", 'w', encoding='utf-8') as f:
                     f.write(llm_text+"\n\nTime: " + str(time))
             else:
                 return [LLMResponse(
