@@ -89,7 +89,7 @@ async def get_all_data_by_section() -> list[LLMResponse]:
             tables_data = f.read()
             promt += tables_data
         
-        with open(f"app/services/llm_service/texts/gold/2024/{section_code}.txt", 'r', encoding='utf-8') as f:
+        with open(f"app/services/llm_service/texts/gold/2024/{section_code}..txt", 'r', encoding='utf-8') as f:
             section_text = f.read()
             promt += f"""
 Используй в качестве примера выводы из отчёта за 2024 год, вот  текст:
