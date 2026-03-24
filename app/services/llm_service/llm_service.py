@@ -78,18 +78,18 @@ async def get_text_by_reques(request: str) -> LLMResponse:
 
 async def get_all_data_by_section() -> list[LLMResponse]:
     result = []
-    for section_code in ["1.7", "2.5", "3.1.1.2", "3.1.2", "3.1.3", "3.1.4"]:
-        with open(f"/app/services/llm_service/texts/section_names/{section_code}.txt", 'r', encoding='utf-8') as f:
+    for section_code in ["1.7.", "2.5.", "3.1.1.2.", "3.1.2.", "3.1.3.", "3.1.4."]:
+        with open(f"app/services/llm_service/texts/section_names/{section_code}.txt", 'r', encoding='utf-8') as f:
             section_name = f.read()
             promt = f"""Действуй как председатель предметной комиссии по учебной дисциплине "Математика профильная".
 Твоя задача - составить раздел для отчёта, называющийся "{section_name}".
 Делай выводы исходя из следующих данных:\n"""
 
-        with open(f"/app/services/llm_service/texts/tables/{section_code}.txt", 'r', encoding='utf-8') as f:
+        with open(f"app/services/llm_service/texts/tables/{section_code}.txt", 'r', encoding='utf-8') as f:
             tables_data = f.read()
             promt += tables_data
         
-        with open(f"/app/services/llm_service/texts/gold/2024/{section_code}.txt", 'r', encoding='utf-8') as f:
+        with open(f"app/services/llm_service/texts/gold/2024/{section_code}.txt", 'r', encoding='utf-8') as f:
             section_text = f.read()
             promt += f"""
 Используй в качестве примера выводы из отчёта за 2024 год, вот  текст:
