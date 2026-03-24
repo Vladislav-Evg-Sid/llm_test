@@ -78,7 +78,7 @@ async def get_text_by_reques(request: str) -> LLMResponse:
 
 async def get_all_data_by_section() -> list[LLMResponse]:
     result = []
-    for section_code in ["1.7.", "2.5.", "3.1.1.2.", "3.1.2.", "3.1.3.", "3.1.4."]:
+    for section_code in ["1.7", "2.5", "3.1.1.2", "3.1.2", "3.1.3", "3.1.4"]:
         with open(f"app/services/llm_service/texts/section_names/{section_code}.txt", 'r', encoding='utf-8') as f:
             section_name = f.read()
             promt = f"""Действуй как председатель предметной комиссии по учебной дисциплине "Математика профильная".
