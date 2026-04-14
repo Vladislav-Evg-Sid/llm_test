@@ -76,18 +76,6 @@ services:
     depends_on:
       - web
 
-  llm:
-    container_name: llm-llmgenerator
-    build:
-      context: ./llm_app
-      dockerfile: Dockerfile.llm
-    ports:
-      - "${LLM_PORT}:${LLM_PORT}"
-    environment:
-      - PYTHONPATH=/qdrant_app
-    depends_on:
-      - web
-
 volumes:
   db-data:
   qdrant-data:
