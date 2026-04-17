@@ -1,44 +1,65 @@
-from sqlalchemy.ext.asyncio import AsyncSession
 from os import getenv
+import time
 import requests
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.schemas.text_reports import LLMResponse, LLMRequest, LLMGenerateRequest, LLMGenerateResponse
+from app.schemas.text_reports import LLMResponse, LLMRequest
 from app.services.llm_service import promt as promtService
 
 
-LLM_PORT = getenv('LLM_PORT', None)
+LLAMA_BASE_URL = getenv("LLAMA_BASE_URL", "http://llama-cpp:8011").rstrip("/")
+LLAMA_MODEL_ALIAS = getenv("LLAMA_MODEL_ALIAS", "local-gguf")
+LLAMA_GENERATION_TEMPERATURE = float(getenv("LLAMA_GENERATION_TEMPERATURE", "0.2"))
+LLAMA_GENERATION_MAX_TOKENS = int(getenv("LLAMA_GENERATION_MAX_TOKENS", "1024"))
+LLAMA_REQUEST_TIMEOUT = float(getenv("LLAMA_REQUEST_TIMEOUT", "600"))
 
-async def get_generated_text_on_subject_by_section(session: AsyncSession, request: LLMRequest, section_code: str) -> LLMResponse:
-    data = await promtService.get_report_generate_data(session=session, request=request, section_code=section_code)
-    
-    with open ('promt.txt', 'w') as f:
+
+def generate_with_llama(prompt: str) -> tuple[str, float]:
+    started_at = time.perf_counter()
+    response = requests.post(
+        f"{LLAMA_BASE_URL}/v1/chat/completions",
+        json={
+            "model": LLAMA_MODEL_ALIAS,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": prompt,
+                }
+            ],
+            "temperature": LLAMA_GENERATION_TEMPERATURE,
+            "max_tokens": LLAMA_GENERATION_MAX_TOKENS,
+            "stream": False,
+        },
+        timeout=LLAMA_REQUEST_TIMEOUT,
+    )
+    response.raise_for_status()
+
+    response_data = response.json()
+    choices = response_data.get("choices", [])
+    text = ""
+    if choices:
+        text = choices[0].get("message", {}).get("content", "") or ""
+
+    return text.strip(), round(time.perf_counter() - started_at, 3)
+
+
+async def get_generated_text_on_subject_by_section(
+    session: AsyncSession, request: LLMRequest, section_code: str
+) -> LLMResponse:
+    data = await promtService.get_report_generate_data(
+        session=session, request=request, section_code=section_code
+    )
+
+    with open("promt.txt", "w") as f:
         f.write(data.promt)
-    
-    # Генерируем ответ
+
     result = LLMResponse()
     try:
-        # Запускаем генерацию в отдельном потоке
-        response = requests.post(
-            f'http://llm:{LLM_PORT}/text_generate/generate',
-            json=LLMGenerateRequest(prompt=data.promt).dict()
-        )
-        if response.ok:
-            response_data = LLMGenerateResponse(**response.json())
-            if response_data.success:
-                llm_text = response_data.text
-                result.time = response_data.time
-            else:
-                return LLMResponse(
-                    text="Ошибка при общании к llm: " + response_data.text
-                )
-        else:
-            return LLMResponse(
-                text="Ошибка обращения к сервису LLM: " + str(response.status_code)
-            )
+        llm_text, result.time = generate_with_llama(data.promt)
     except Exception as e:
         result.text = f"Ошибка генерации: {str(e)}"
         llm_text = ""
-    
+
     for part in data.template:
         if result.text != "":
             result.text += "\n"
@@ -46,32 +67,16 @@ async def get_generated_text_on_subject_by_section(session: AsyncSession, reques
             result.text += data.obligatury_text[int(part.replace("obligatury_text-", ""))]
         elif part == "llm_text":
             result.text += llm_text
-    
-    with open ('result.txt', 'w') as f:
+
+    with open("result.txt", "w") as f:
         f.write(result.text)
     return result
+
 
 async def get_text_by_reques(request: str) -> LLMResponse:
     result = LLMResponse()
     try:
-        # Запускаем генерацию в отдельном потоке
-        response = requests.post(
-            f'http://llm:{LLM_PORT}/text_generate/generate',
-            json=LLMGenerateRequest(prompt=request).dict()
-        )
-        if response.ok:
-            response_data = LLMGenerateResponse(**response.json())
-            if response_data.success:
-                result.time = response_data.time
-                result.text = response_data.text
-            else:
-                return LLMResponse(
-                    text="Ошибка при общании к llm: " + response_data.text
-                )
-        else:
-            return LLMResponse(
-                text="Ошибка обращения к сервису LLM: " + str(response.status_code)
-            )
+        result.text, result.time = generate_with_llama(request)
     except Exception as e:
         result.text = f"Ошибка генерации: {str(e)}"
     return result
