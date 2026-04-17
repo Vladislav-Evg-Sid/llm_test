@@ -9,9 +9,13 @@ from app.services.llm_service import promt as promtService
 
 LLAMA_BASE_URL = getenv("LLAMA_BASE_URL", "http://llama-cpp:8011").rstrip("/")
 LLAMA_MODEL_ALIAS = getenv("LLAMA_MODEL_ALIAS", "local-gguf")
-LLAMA_GENERATION_TEMPERATURE = float(getenv("LLAMA_GENERATION_TEMPERATURE", "0.2"))
+LLAMA_GENERATION_TEMPERATURE = float(getenv("LLAMA_GENERATION_TEMPERATURE", "0"))
 LLAMA_GENERATION_MAX_TOKENS = int(getenv("LLAMA_GENERATION_MAX_TOKENS", "1024"))
 LLAMA_REQUEST_TIMEOUT = float(getenv("LLAMA_REQUEST_TIMEOUT", "600"))
+LLAMA_GENERATION_SEED = int(getenv("LLAMA_GENERATION_SEED", "42"))
+LLAMA_GENERATION_TOP_K = int(getenv("LLAMA_GENERATION_TOP_K", "1"))
+LLAMA_GENERATION_TOP_P = float(getenv("LLAMA_GENERATION_TOP_P", "1.0"))
+LLAMA_GENERATION_MIN_P = float(getenv("LLAMA_GENERATION_MIN_P", "0.0"))
 
 
 def generate_with_llama(prompt: str) -> tuple[str, float]:
@@ -28,6 +32,10 @@ def generate_with_llama(prompt: str) -> tuple[str, float]:
             ],
             "temperature": LLAMA_GENERATION_TEMPERATURE,
             "max_tokens": LLAMA_GENERATION_MAX_TOKENS,
+            "seed": LLAMA_GENERATION_SEED,
+            "top_k": LLAMA_GENERATION_TOP_K,
+            "top_p": LLAMA_GENERATION_TOP_P,
+            "min_p": LLAMA_GENERATION_MIN_P,
             "stream": False,
         },
         timeout=LLAMA_REQUEST_TIMEOUT,
