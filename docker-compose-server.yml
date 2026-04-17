@@ -1,23 +1,4 @@
 services:
-  db:
-    build:
-      context: ./db
-      dockerfile: Dockerfile.db
-    container_name: llm-db
-    restart: unless-stopped
-    env_file: .env
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    ports:
-      - "5433:${DB_PORT}"
-    volumes:
-      - db-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   qdrant:
     image: qdrant/qdrant:latest
@@ -87,7 +68,6 @@ services:
       - LLAMA_GENERATION_MAX_TOKENS=${LLAMA_GENERATION_MAX_TOKENS:-1024}
       - LLAMA_REQUEST_TIMEOUT=${LLAMA_REQUEST_TIMEOUT:-600}
     depends_on:
-      - db
       - qdrant
       - llama-cpp
 
