@@ -56,6 +56,7 @@ async def get_generated_text_on_subject_by_section(
     result = LLMResponse()
     try:
         llm_text, result.time = generate_with_llama(data.promt)
+        llm_text = llm_text.replace(data.promt, "")
     except Exception as e:
         result.text = f"Ошибка генерации: {str(e)}"
         llm_text = ""
