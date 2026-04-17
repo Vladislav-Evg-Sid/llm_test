@@ -48,7 +48,7 @@ def generate_with_llama(prompt: str) -> tuple[str, float]:
     if choices:
         text = choices[0].get("message", {}).get("content", "") or ""
 
-    return text.strip(), round(time.perf_counter() - started_at, 3)
+    return text.replace(prompt, "").strip(), round(time.perf_counter() - started_at, 3)
 
 
 async def get_generated_text_on_subject_by_section(
@@ -64,9 +64,6 @@ async def get_generated_text_on_subject_by_section(
     result = LLMResponse()
     try:
         llm_text, result.time = generate_with_llama(data.promt)
-        print('*'*100, '\n', llm_text)
-        llm_text = llm_text.replace(data.promt, "")
-        print('*'*100, '\n', llm_text, '\n', '='*100)
     except Exception as e:
         result.text = f"Ошибка генерации: {str(e)}"
         llm_text = ""
