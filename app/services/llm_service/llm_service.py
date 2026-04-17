@@ -73,7 +73,7 @@ async def get_generated_text_on_subject_by_section(
     return result
 
 
-async def get_text_by_reques(request: str) -> LLMResponse:
+async def get_text_by_request(request: str) -> LLMResponse:
     result = LLMResponse()
     try:
         result.text, result.time = generate_with_llama(request)
