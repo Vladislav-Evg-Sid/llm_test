@@ -192,8 +192,8 @@ class RequestsForSecondSection(RequestsForSections):
         for i in range(len(data)):
             for j in range(1, len(data[i])):
                 result.data[j-1][0] = f"{j}."
-                result.data[j-2][1] = category_names[j-1]
-                result.data[j-2][i+2] = float(data[i][j])
+                result.data[j-1][1] = category_names[j-1]
+                result.data[j-1][i+2] = float(data[i][j])
         result.table_name = "Динамика результатов ЕГЭ по предмету за последние 3 года"
         
         self._tables.resultDynamic = result

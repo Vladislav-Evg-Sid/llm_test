@@ -21,7 +21,7 @@ router = APIRouter(
 async def test_querry(section_num: int, table_num: int, exam_year: int = 2025, exam_type_id: int = 4, subject_id: int = 2, session: AsyncSession = Depends(get_async_session)) -> TableStandart:
     return await tableRepManager.get_table_by_section(session, section_num, table_num, year=exam_year, exam_type_id=exam_type_id, subject_id=subject_id)
 
-# Формирование первого раздела
+# Формирование раздела
 @router.post("/report/generate/section")
 async def generate_sections(request: LLMRequest, section_code: str = "1.7.", session: AsyncSession = Depends(get_async_session)) -> LLMResponse:
     return await llmService.get_generated_text_on_subject_by_section(session, request, section_code)
