@@ -13,12 +13,32 @@ async def get_obligatury_text(section_code: str, year: int, subject_name: str, t
             return ""
         
         case "2.5.":
-            return f"""По результатам выполнения заданий ЕГЭ {year} года по предмету {subject_name} имеет место изменение следующих
-показателей (см. Таблицу 2-6):
-- среднего балла («+6,6» с {year-2} годом, «+7,2» с {year-1} годом);
-- участников, получивших баллы ниже минимальных («-4,3%» с 2022 годом и «-2,8%» с 2023 годом);
-- участников, получивших баллы от 61 до 80 («-2,6%» с 2022 годом и «-0,9%» с 2023 годом);
-- участников, получивших баллы от 81 до 100 («+11,3%» с 2022 годом и «+11,5%» с 2023 годом)."""
+            score_mean_2 = table.data[4][-1]-table.data[4][-3]
+            score_mean_2 = f"+{score_mean_2}" if score_mean_2 > 0 else str(score_mean_2)
+            score_mean_1 = table.data[4][-1]-table.data[4][-2]
+            score_mean_1 = f"+{score_mean_1}" if score_mean_1 > 0 else str(score_mean_1)
+            score_min_2 = table.data[0][-1]-table.data[0][-3]
+            score_min_2 = f"+{score_min_2}" if score_min_2 > 0 else str(score_min_2)
+            score_min_1 = table.data[0][-1]-table.data[0][-2]
+            score_min_1 = f"+{score_min_1}" if score_min_1 > 0 else str(score_min_1)
+            score_less_midle_2 = table.data[1][-1]-table.data[1][-3]
+            score_less_midle_2 = f"+{score_less_midle_2}" if score_less_midle_2 > 0 else str(score_less_midle_2)
+            score_less_midle_1 = table.data[1][-1]-table.data[1][-2]
+            score_less_midle_1 = f"+{score_less_midle_1}" if score_less_midle_1 > 0 else str(score_less_midle_1)
+            score_midle_2 = table.data[2][-1]-table.data[2][-3]
+            score_midle_2 = f"+{score_midle_2}" if score_midle_2 > 0 else str(score_midle_2)
+            score_midle_1 = table.data[2][-1]-table.data[2][-2]
+            score_midle_1 = f"+{score_midle_1}" if score_midle_1 > 0 else str(score_midle_1)
+            score_max_2 = table.data[3][-1]-table.data[3][-3]
+            score_max_2 = f"+{score_max_2}" if score_max_2 > 0 else str(score_max_2)
+            score_max_1 = table.data[3][-1]-table.data[3][-2]
+            score_max_1 = f"+{score_max_1}" if score_max_1 > 0 else str(score_max_1)
+            return f"""По результатам выполнения заданий ЕГЭ {year} года по предмету {subject_name} имеет место изменение следующих показателей (см. Таблицу 2-6):
+- среднего балла («{score_mean_2}%» с {year-2} годом, «{score_mean_1}%» с {year-1} годом);
+- участников, получивших баллы ниже минимальных («{score_min_2}%» с {year-2} годом и «{score_min_1}%» с {year-1} годом);
+- участников, получивших баллы от минимального до 60 («{score_less_midle_2}%» с {year-2} годом и «{score_less_midle_1}%» с {year-1} годом);
+- участников, получивших баллы от 61 до 80 («{score_midle_2}%» с {year-2} годом и «{score_midle_1}%» с {year-1} годом);
+- участников, получивших баллы от 81 до 100 («{score_max_2}%» с {year-2} годом и «{score_max_1}%» с {year-1} годом)."""
 
 
 async def getTablesBySection(
