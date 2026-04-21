@@ -47,8 +47,13 @@ def generate_with_llama(prompt: str) -> tuple[str, float]:
     text = ""
     if choices:
         text = choices[0].get("message", {}).get("content", "") or ""
+    
+    text = text.replace(prompt, "").strip()
+    if "<answer>" in text:
+        text = text.split("<answer>")[1]
+        text = text.replace("</answer>", "")
 
-    return text.replace(prompt, "").strip(), round(time.perf_counter() - started_at, 3)
+    return text, round(time.perf_counter() - started_at, 3)
 
 
 async def get_generated_text_on_subject_by_section(
