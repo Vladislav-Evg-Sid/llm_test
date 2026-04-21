@@ -40,7 +40,15 @@ def generate_with_llama(prompt: str) -> tuple[str, float]:
         },
         timeout=LLAMA_REQUEST_TIMEOUT,
     )
-    response.raise_for_status()
+    if not response.ok:
+        error_details = response.text.strip()
+        if len(error_details) > 500:
+            error_details = error_details[:500] + "..."
+        raise requests.HTTPError(
+            f"{response.status_code} Client Error for url: {response.url}. "
+            f"Response body: {error_details}",
+            response=response,
+        )
 
     response_data = response.json()
     choices = response_data.get("choices", [])
