@@ -33,8 +33,7 @@ async def get_obligatury_text(section_code: str, year: int, subject_name: str, t
             score_max_2 = f"+{score_max_2}" if score_max_2 > 0 else str(score_max_2)
             score_max_1 = table.data[3][-1]-table.data[3][-2]
             score_max_1 = f"+{score_max_1}" if score_max_1 > 0 else str(score_max_1)
-            return f"""По результатам выполнения заданий ЕГЭ {year} года по предмету {subject_name} имеет место изменение следующих
-показателей (см. Таблицу 2-6):
+            return f"""По результатам выполнения заданий ЕГЭ {year} года по предмету {subject_name} имеет место изменение следующих показателей (см. Таблицу 2-6):
 - среднего балла («{score_mean_2}%» с {year-2} годом, «{score_mean_1}%» с {year-1} годом);
 - участников, получивших баллы ниже минимальных («{score_min_2}%» с {year-2} годом и «{score_min_1}%» с {year-1} годом);
 - участников, получивших баллы от минимального до 60 («{score_less_midle_2}%» с {year-2} годом и «{score_less_midle_1}%» с {year-1} годом);
