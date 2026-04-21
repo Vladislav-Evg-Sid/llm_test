@@ -47,7 +47,7 @@ def cleanup_buffer(buffer: io.BytesIO):
 
 @router.post("/generate")
 async def generate_text(request: str) -> LLMResponse:
-    return await llmService.get_text_by_reques(request)
+    return await llmService.get_text_by_request(request)
 
 @router.get("/generate/all-data")
 async def generate_all_data() -> list[LLMResponse]:
