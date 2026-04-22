@@ -141,19 +141,19 @@ async def get_all_data_by_section() -> list[LLMResponse]:
         promt += f"""
 Не пытайся придумать, что будет выше или ниже данного раздела, не нужно оставлять место под подпись, подписываться или писать название раздела. Твоя задача - написать текст раздела, который будет вставлен в итоговый отчёт. Используй пример в качестве шаблона того, как должен выглядеть раздел. Для подставления результатов используй данные из таблиц.
 Сейчас 2025 год. Тебе нужно сравнивать его с данными за 2023 и 2024 годы.
-
+"""
+        try:
+            with open(f"app/services/llm_service/texts/text_templates/ot-{section_code}.txt", 'r', encoding='utf-8') as f:
+                obligatury_text = f.read().split('---')
+                promt += f"""
 Твоя задача - дописать следующий текст:
-```
-По результатам выполнения заданий ЕГЭ 2025 года по математике (профильный уровень) имеет место изменение следующих
-показателей (см. Таблицу 2-6):
-среднего балла («+5,9» с 2023 годом, «-1,3» с 2024 годом);
-- участников, получивших баллы ниже минимальных («-2,6%» с 2023 годом и «+0,2%» с 2024 годом);
-- участников, получивших баллы от минимального до 60 («-6,6%» с 2023 годом и «+1,2%» с 2024 годом);
-- участников, получивших баллы от 61 до 80 («+3,1%» с 2023 годом и «+4%» с 2024 годом);
-- участников, получивших баллы от 81 до 100 («+6,1%» с 2023 годом и «-5,4%» с 2024 годом).
+{obligatury_text[0]}
 
 <сгенерированный-текст>
-```
+"""
+        except:
+            promt += f"""
+<сгенерированный-текст>
 """
         result = LLMResponse()
         try:
@@ -162,10 +162,10 @@ async def get_all_data_by_section() -> list[LLMResponse]:
             result.text = f"Ошибка генерации: {str(e)}"
             llm_text = ""
 
-        with open(f"app/services/llm_service/texts/text_templates/{section_code}.txt", 'r', encoding='utf-8') as f:
-            template = f.read().split(';')
-        with open(f"app/services/llm_service/texts/text_templates/ot-{section_code}.txt", 'r', encoding='utf-8') as f:
-            obligatury_text = f.read().split('---')
+        # with open(f"app/services/llm_service/texts/text_templates/{section_code}.txt", 'r', encoding='utf-8') as f:
+        #     template = f.read().split(';')
+        # with open(f"app/services/llm_service/texts/text_templates/ot-{section_code}.txt", 'r', encoding='utf-8') as f:
+        #     obligatury_text = f.read().split('---')
 
         # for part in template:
         #     if result.text != "":
