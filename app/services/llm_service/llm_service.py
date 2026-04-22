@@ -146,14 +146,16 @@ async def get_all_data_by_section() -> list[LLMResponse]:
             with open(f"app/services/llm_service/texts/text_templates/ot-{section_code}.txt", 'r', encoding='utf-8') as f:
                 obligatury_text = f.read().split('---')
                 promt += f"""
-Твоя задача - дописать следующий текст:
+Твоя задача - дописать следующий текст (кавычки дублировать не надо):
+\"\"\"
 {obligatury_text[0]}
 
 <сгенерированный-текст>
+\"\"\"
 """
         except:
             promt += f"""
-<сгенерированный-текст>
+Председатель предметной комиссии:
 """
         result = LLMResponse()
         try:
