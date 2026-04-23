@@ -8,6 +8,7 @@ from app.services.llm_service import promt as promtService
 
 
 LLAMA_BASE_URL = getenv("LLAMA_BASE_URL", "http://llama-cpp:8011").rstrip("/")
+LLAMA_MODEL_FILE = getenv("LLAMA_MODEL_FILE", "model.gguf")
 LLAMA_MODEL_ALIAS = getenv("LLAMA_MODEL_ALIAS", "local-gguf")
 LLAMA_GENERATION_TEMPERATURE = float(getenv("LLAMA_GENERATION_TEMPERATURE", "0"))
 LLAMA_GENERATION_MAX_TOKENS = int(getenv("LLAMA_GENERATION_MAX_TOKENS", "1024"))
@@ -222,7 +223,7 @@ async def get_all_data_by_section() -> list[LLMResponse]:
 
             result.text = llm_text
 
-            with open(f"app/services/llm_service/texts/llm_output/{LLAMA_MODEL_ALIAS.replace(".gguf", "")}-{role_id}.txt", 'w', encoding='utf-8') as f:
+            with open(f"app/services/llm_service/texts/llm_output/{LLAMA_MODEL_FILE.replace(".gguf", "")}-{role_id}.txt", 'w', encoding='utf-8') as f:
                 f.write(result.text+"\n\nTime: " + str(result.time))
             all_results.append(result)
     return all_results
