@@ -94,6 +94,8 @@
    docker compose -f docker-compose-server.yml up
    ```
 
+4. Использование модели без системного промпта используй эндпоинт `textreports/generate`
+
 ## Проброс портов на сервер
 
 Для доступа к эндпоинтам сервиса из браузера на ПК нужно подключиться к серверу с пробросом портов: `ssh user_name@id -L server_port:local_port`.
