@@ -225,5 +225,7 @@ async def get_all_data_by_section() -> list[LLMResponse]:
 
             with open(f"app/services/llm_service/texts/llm_output/{LLAMA_MODEL_FILE.replace(".gguf", "")}-{role_id}.txt", 'w', encoding='utf-8') as f:
                 f.write(result.text+"\n\nTime: " + str(result.time))
+            with open(f"app/services/llm_service/texts/llm_output/prompts/{LLAMA_MODEL_FILE.replace(".gguf", "")}-{role_id}.txt", 'w', encoding='utf-8') as f:
+                f.write(promt)
             all_results.append(result)
     return all_results
