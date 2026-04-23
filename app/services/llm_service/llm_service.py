@@ -201,7 +201,7 @@ async def get_all_data_by_section() -> list[LLMResponse]:
         try:
             with open(f"app/services/llm_service/texts/text_templates/ot-{section_code}.txt", 'r', encoding='utf-8') as f:
                 obligatury_text = f.read().split('---')
-                promt_data += f"""
+                promt_end = f"""
 Твоя задача - дописать следующий текст без дублирования кавычек:
 \"\"\"
 {obligatury_text[0]}
@@ -209,10 +209,10 @@ async def get_all_data_by_section() -> list[LLMResponse]:
 <сгенерированный-текст>
 \"\"\"
 """
-        except:pass
+        except:promt_end = ""
         
         for role_id, promt_role in enumerate(model_roles, start=1):
-            promt = promt_role + promt_data
+            promt =  promt_data + "\n\n" + promt_role + "\n" + promt_end
             
             result = LLMResponse()
             try:
